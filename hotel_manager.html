@@ -547,8 +547,13 @@ function importarDatos(input){
   if(datos.comprasTienda)comprasTienda=datos.comprasTienda;
       if(datos.saldoInicial){saldoInicial=datos.saldoInicial;CAJAS_LIST.forEach(function(c){var el=document.getElementById("si-"+c);if(el&&saldoInicial[c])el.value=saldoInicial[c];});}
       autoArchivarVencidos();
-      guardar();renderTable();
-      alert("Datos importados: "+(datos.fecha||""));
+      renderTable();
+      fetch('/api/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(datos)})
+        .then(function(r){return r.json();})
+        .then(function(r){
+          if(r.ok){alert("Datos importados y guardados en el servidor.");}
+          else{alert("Error guardando en servidor: "+JSON.stringify(r));}
+        }).catch(function(e){alert("Error de conexion: "+e.message);});
     }catch(err){alert("Error: "+err.message);}
   };
   reader.readAsText(file);input.value="";
