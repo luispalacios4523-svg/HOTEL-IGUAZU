@@ -98,6 +98,11 @@ td{padding:4px 6px;vertical-align:middle;}
   <span style="margin-left:auto;font-size:13px;color:#666" id="fecha-hoy"></span>
   <span class="saved" id="saved-msg"></span>
 </div>
+<div id="aviso-backup" style="display:none;background:#fff3cd;border-bottom:2px solid #c9a227;padding:8px 16px;font-size:13px;color:#7a5c00;display:flex;align-items:center;gap:12px;">
+  <span>⚠️ <strong>Recordatorio:</strong> Han pasado más de 7 días sin exportar el backup. Exporta ahora para no perder datos.</span>
+  <button onclick="exportarDatos()" style="padding:4px 14px;background:#c9a227;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;">Exportar ahora</button>
+  <button onclick="document.getElementById('aviso-backup').style.display='none'" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:18px;color:#7a5c00;">✕</button>
+</div>
 <div class="tabs">
   <div class="tab active" onclick="showTab('ventas',this)">&#127968; VENTAS</div>
   <div class="tab" onclick="showTab('tienda',this)">&#128722; TIENDA</div>
@@ -435,7 +440,7 @@ function doLogin(){
   sesion.usuario=u;sesion.rol=USUARIOS[u].rol;sesion.nombre=USUARIOS[u].nombre;
   document.getElementById("login-overlay").style.display="none";
   aplicarPermisos();
-  cargar().then(function(){renderTable();});
+  cargar().then(function(){renderTable();verificarBackup();});
 }
 
 function aplicarPermisos(){
@@ -502,6 +507,16 @@ function cargar(){
   }).catch(function(e){console.error("Error cargando:",e);});
 }
 
+function verificarBackup(){
+  fetch('/api/load').then(function(r){return r.json();}).then(function(d){
+    var av=document.getElementById("aviso-backup");
+    if(!av)return;
+    var ultimo=d.hotel_ultimo_backup;
+    if(!ultimo){av.style.display="flex";return;}
+    var dias=(new Date()-new Date(ultimo))/(1000*60*60*24);
+    if(dias>=7)av.style.display="flex";
+  });
+}
 function nm(v){return parseFloat(v)||0;}
 function fmt(v){return "$"+Math.round(v).toLocaleString("es-CO");}
 function esc(v){if(!v)return "";return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
@@ -529,6 +544,8 @@ function exportarDatos(){
   var url=URL.createObjectURL(blob);var a=document.createElement("a");
   a.href=url;a.download="hotel-backup-"+new Date().toISOString().split("T")[0]+".json";a.click();
   URL.revokeObjectURL(url);
+  fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hotel_ultimo_backup:new Date().toISOString()})});
+  var av=document.getElementById("aviso-backup");if(av)av.style.display="none";
 }
 function importarDatos(input){
   var file=input.files[0];if(!file)return;
