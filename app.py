@@ -8,30 +8,33 @@ app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
 if DATABASE_URL:
-    import psycopg2
-    import psycopg2.extras
+    import pg8000.native
 
     def get_db():
-        conn = psycopg2.connect(DATABASE_URL)
+        # pg8000 acepta la URL directamente parseandola
+        import urllib.parse
+        r = urllib.parse.urlparse(DATABASE_URL)
+        conn = pg8000.native.Connection(
+            host=r.hostname,
+            port=r.port or 5432,
+            database=r.path.lstrip('/'),
+            user=r.username,
+            password=r.password,
+            ssl_context=True
+        )
         return conn
 
     def init_db():
         conn = get_db()
-        cur = conn.cursor()
-        cur.execute('''CREATE TABLE IF NOT EXISTS store (
+        conn.run('''CREATE TABLE IF NOT EXISTS store (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL
         )''')
-        conn.commit()
-        cur.close()
         conn.close()
 
     def db_load_all():
         conn = get_db()
-        cur = conn.cursor()
-        cur.execute('SELECT key, value FROM store')
-        rows = cur.fetchall()
-        cur.close()
+        rows = conn.run('SELECT key, value FROM store')
         conn.close()
         result = {}
         for key, value in rows:
@@ -43,14 +46,11 @@ if DATABASE_URL:
 
     def db_save(data):
         conn = get_db()
-        cur = conn.cursor()
         for key, value in data.items():
-            cur.execute(
-                'INSERT INTO store (key, value) VALUES (%s, %s) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value',
-                (key, json.dumps(value, ensure_ascii=False))
+            conn.run(
+                'INSERT INTO store (key, value) VALUES (:key, :value) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value',
+                key=key, value=json.dumps(value, ensure_ascii=False)
             )
-        conn.commit()
-        cur.close()
         conn.close()
 
 else:
