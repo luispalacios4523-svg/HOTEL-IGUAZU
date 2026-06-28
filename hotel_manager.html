@@ -746,7 +746,7 @@ function renderTable(){
     var hues=[p0.apellidos,p0.nombre].filter(function(x){return x&&x.trim();}).join(" ")||r.nombre||"";
     var noches=parseInt(r.nochesTotal)||1;
     var salida=calcSalida(r.fechaEntrada,noches);
-    var yaExiste=historialesEst.some(function(e){return e.hab===h&&e.entrada===r.fechaEntrada;});
+    var yaExiste=historialesEst.some(function(e){return e.hab===h&&e.entrada===r.fechaEntrada&&e.huesped===(hues.trim()||"Sin nombre");});
     if(!yaExiste&&(hues.trim()||nm(r.valor)>0)){
       historialesEst.push({hab:h,huesped:hues||"Sin nombre",entrada:r.fechaEntrada,salida:salida,
         noches:noches,valor:nm(r.valor),pago:r.pago||"",canal:r.canal||"",
@@ -1770,7 +1770,7 @@ function autoArchivarVencidos(){
     var hues=[p0.apellidos,p0.nombre].filter(function(x){return x&&x.trim();}).join(" ")||r.nombre||"";
     var noches=parseInt(r.nochesTotal)||1;
     var salida=calcSalida(r.fechaEntrada,noches);
-    var yaExiste=historialesEst.some(function(e){return e.hab===h&&e.entrada===r.fechaEntrada;});
+    var yaExiste=historialesEst.some(function(e){return e.hab===h&&e.entrada===r.fechaEntrada&&e.huesped===(hues.trim()||"Sin nombre");});
     if(!yaExiste&&(hues.trim()||nm(r.valor)>0)){
       historialesEst.push({hab:h,huesped:hues||"Sin nombre",entrada:r.fechaEntrada,salida:salida,
         noches:noches,valor:nm(r.valor),pago:r.pago||"",canal:r.canal||"",
