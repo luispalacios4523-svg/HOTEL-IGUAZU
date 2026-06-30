@@ -444,13 +444,12 @@ function doLogin(){
   aplicarPermisos();
   cargar().then(function(){renderTable();verificarBackup();});
   setInterval(function(){
-    var urls=['https://bicicletas-electricas.onrender.com/api/efectivo','https://clientes-online.onrender.com/api/efectivo'];
+    var urls=['/api/efectivo','https://bicicletas-electricas.onrender.com/api/efectivo','https://clientes-online.onrender.com/api/efectivo'];
     Promise.all(urls.map(function(u){return fetch(u).then(function(r){return r.json();}).catch(function(){return {efectivo:0};});}))
     .then(function(res){
-      var ef=parseFloat((document.getElementById('caja-efectivo-total').textContent||'0').replace(/[^0-9.-]/g,''))||0;
-      var tot=ef+res.reduce(function(s,r){return s+(r.efectivo||0);},0);
-      var el=document.getElementById('total-efectivo-global');
-      if(el)el.textContent=fmt(tot);
+      var tot=res.reduce(function(s,r){return s+(r.efectivo||0);},0);
+      var elT=document.getElementById('total-efectivo-global');
+      if(elT)elT.textContent=fmt(tot);
     });
   },30000);
 }
