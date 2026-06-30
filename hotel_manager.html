@@ -385,6 +385,8 @@ td{padding:4px 6px;vertical-align:middle;}
     <div style="background:#2d6a3f;border-radius:10px;padding:18px 24px;">
       <div style="color:#a8d5b5;font-size:13px;font-weight:bold;">&#128181; EFECTIVO DISPONIBLE</div>
       <div id="caja-efectivo-total" style="color:#fff;font-size:28px;font-weight:bold;margin-top:8px;">$0</div>
+      <div style="color:#a8d5b5;font-size:11px;font-weight:bold;margin-top:10px;">&#128200; TOTAL EFECTIVO (3 negocios)</div>
+      <div id="total-efectivo-global" style="color:#fff;font-size:20px;font-weight:bold;">...</div>
     </div>
     <div style="background:#1a6bb5;border-radius:10px;padding:18px 24px;">
       <div style="color:#cce5ff;font-size:13px;font-weight:bold;">&#128176; TOTAL GENERAL ACUMULADO</div>
@@ -1749,6 +1751,11 @@ function renderCaja(){
   if(tots["Ayenda"].ing>0||tots["Ayenda"].gas>0){var aySaldo=tots["Ayenda"].ing-tots["Ayenda"].gas;html+="<div style='background:#fce4ec;border:1px solid #880e4f40;border-radius:10px;padding:14px;'><div style='font-size:13px;font-weight:bold;color:#880e4f;margin-bottom:8px;'>AYENDA</div><div style='font-size:11px;color:#2a6a3a;'>Ingresos</div><div style='font-size:13px;color:#2a6a3a;font-weight:bold;margin-bottom:4px;'>"+fmt(tots["Ayenda"].ing)+"</div><div style='border-top:1px solid #880e4f40;padding-top:8px;margin-top:4px;'><div style='font-size:11px;color:#888;'>DISPONIBLE</div><div style='font-size:20px;font-weight:bold;color:#880e4f;'>"+fmt(aySaldo)+"</div></div></div>";}
   grid.innerHTML=html;
   document.getElementById("caja-efectivo-total").textContent=fmt(efSaldo);
+  // Guardar efectivo actual y calcular total
+  fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({efectivo_actual:efSaldo})});
+  var _urls=['https://bicicletas-electricas.onrender.com/api/efectivo','https://clientes-online.onrender.com/api/efectivo'];
+  Promise.all(_urls.map(function(u){return fetch(u).then(function(r){return r.json();}).catch(function(){return {efectivo:0};});}))
+  .then(function(res){var tot=efSaldo+res.reduce(function(s,r){return s+(r.efectivo||0);},0);document.getElementById('total-efectivo-global').textContent=fmt(tot);});
   document.getElementById("caja-general-total").textContent=fmt(efSaldo+digSaldo+(tots["Ayenda"].ing-tots["Ayenda"].gas));
   var hoy=new Date().toISOString().split("T")[0];var movHtml="";var hay=false;
   var vHoy=HABS.filter(function(h){return nm(reg[h].valor)>0;});
