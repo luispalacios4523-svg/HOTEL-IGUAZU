@@ -708,16 +708,29 @@ function pintarHistorial(lista){
 function editarRegistroArchivado(idx){
   if(sesion.rol!=="admin"){alert("Solo el administrador puede editar.");return;}
   var e=historialesEst[idx];if(!e){alert("No encontrado.");return;}
-  var nuevoValor=prompt("Editar registro: "+e.huesped+"\nHab: "+e.hab+" | Entrada: "+e.entrada+"\n\nValor actual: "+fmt(e.valor)+"\nNuevo valor:",nm(e.valor));
-  if(nuevoValor===null)return;
-  var v=parseFloat(String(nuevoValor).replace(/[.,\s]/g,""));
+  var formasPago=["Efectivo","Nequi","Transferencia","Tarjeta","Otro"];
+  var opcionesFP=formasPago.map(function(f){return "<option value='"+f+"'"+(f.toLowerCase()===(e.pago||"").toLowerCase()?" selected":"")+">"+f+"</option>";}).join("");
+  var panel="<div style='padding:16px;min-width:320px;'>";
+  panel+="<h3 style='margin:0 0 12px;color:#1a3a6b;'>✏️ Editar registro archivado</h3>";
+  panel+="<div style='background:#f0f4ff;border-radius:6px;padding:8px 12px;margin-bottom:14px;font-size:13px;'><b>"+esc(e.huesped)+"</b> — Hab "+e.hab+" | Entrada: "+esc(e.entrada||"")+"</div>";
+  panel+="<div style='margin-bottom:10px;'><label style='font-size:12px;font-weight:bold;color:#555;display:block;margin-bottom:4px;'>VALOR ($)</label>";
+  panel+="<input type='number' id='edit-arch-valor' value='"+nm(e.valor)+"' style='width:100%;padding:8px 10px;border:1.5px solid #1a6bb5;border-radius:6px;font-size:15px;font-weight:bold;'></div>";
+  panel+="<div style='margin-bottom:14px;'><label style='font-size:12px;font-weight:bold;color:#555;display:block;margin-bottom:4px;'>FORMA DE PAGO</label>";
+  panel+="<select id='edit-arch-pago' style='width:100%;padding:8px 10px;border:1.5px solid #1a6bb5;border-radius:6px;font-size:14px;'>"+opcionesFP+"</select></div>";
+  panel+="<div style='display:flex;gap:8px;'>";
+  panel+="<button onclick='guardarEdicionArchivado("+idx+")' style='flex:1;padding:10px;background:#1a6bb5;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:bold;cursor:pointer;'>✓ Guardar</button>";
+  panel+="<button onclick='closeOverlay()' style='padding:10px 16px;background:#eee;border:none;border-radius:6px;font-size:14px;cursor:pointer;'>Cancelar</button>";
+  panel+="</div></div>";
+  showOverlay(panel,false);
+}
+function guardarEdicionArchivado(idx){
+  var v=parseFloat((document.getElementById("edit-arch-valor")||{}).value||"0");
+  var fp=((document.getElementById("edit-arch-pago")||{}).value||"");
   if(isNaN(v)||v<0){alert("Valor inválido.");return;}
-  var nuevoPago=prompt("Forma de pago actual: "+(e.pago||"")+" \nNueva forma de pago (dejar vacío para no cambiar):");
-  if(nuevoPago===null)return;
   historialesEst[idx].valor=v;
-  if(nuevoPago.trim())historialesEst[idx].pago=nuevoPago.trim();
+  if(fp)historialesEst[idx].pago=fp;
   guardar();
-  alert("Registro actualizado.");
+  closeOverlay();
   openHistorial();
 }
 
