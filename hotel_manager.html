@@ -1836,15 +1836,18 @@ function autoArchivarVencidos(){
 // Auto-archivar cada 5 minutos
 setInterval(function(){autoArchivarVencidos();}, 5*60*1000);
 
-// Backup automático al cerrar
+// Backup automático al cerrar - una vez por día
 window.addEventListener('beforeunload', function(){
+  if(!_datosListos)return;
   try{
-    var datos={version:1,fecha:new Date().toISOString(),reg:reg,gastos:gastos,gastosDetalle:gastosDetalle,productos:productos,historialVentas:historialVentas,historialesEst:historialesEst,saldoInicial:saldoInicial};
-    var blob=new Blob([JSON.stringify(datos)],{type:'application/json'});
-    var url=URL.createObjectURL(blob);
+    var hoy=new Date().toISOString().slice(0,10);
+    if(localStorage.getItem('hotel_ultimo_backup')===hoy)return;
+    var datos={version:1,fecha:new Date().toISOString(),reg:reg,gastos:gastos,gastosDetalle:gastosDetalle,productos:productos,historialVentas:historialVentas,historialesEst:historialesEst,saldoInicial:saldoInicial,comprasTienda:comprasTienda,ajustes:ajustes};
     var a=document.createElement('a');
-    a.href=url;a.download='hotel-autobackup-'+new Date().toISOString().split('T')[0]+'.json';
-    a.click();URL.revokeObjectURL(url);
+    a.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(datos,null,2));
+    a.download='hotel-backup-'+hoy+'.json';
+    a.click();
+    localStorage.setItem('hotel_ultimo_backup',hoy);
   }catch(e){}
 });
 
