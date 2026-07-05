@@ -482,7 +482,9 @@ function initHab(h){return{nombre:"",canal:"",valor:"",pago:"",fechaEntrada:"",n
 HABS.forEach(function(h){reg[h]=initHab(h);});
 document.getElementById("fecha-hoy").textContent=new Date().toLocaleDateString("es-CO",{day:"2-digit",month:"long",year:"numeric"});
 
+var _datosListos=false;
 function guardar(){
+  if(!_datosListos)return;
   var payload={
     hotel_reg:reg,
     hotel_gastos:gastos,
@@ -515,7 +517,8 @@ function cargar(){
       if(d.hotel_saldo){saldoInicial=d.hotel_saldo;CAJAS_LIST.forEach(function(c){var el=document.getElementById("si-"+c);if(el&&saldoInicial[c])el.value=saldoInicial[c];});}
       if(d.hotel_ajustes)ajustes=d.hotel_ajustes;
     }catch(e){console.error("Error cargando:",e);}
-  }).catch(function(e){console.error("Error cargando:",e);});
+    _datosListos=true;
+  }).catch(function(e){console.error("Error cargando:",e);_datosListos=true;});
 }
 
 function verificarBackup(){
