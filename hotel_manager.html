@@ -693,13 +693,32 @@ function pintarHistorial(lista){
     html+="<td style='padding:6px;font-weight:bold;color:#2d6a3f;'>"+fmt(e.valor)+"</td>";
     html+="<td style='padding:6px;'>"+esc(e.pago||"")+"</td>";
     html+="<td style='padding:6px;'>";
-    if(!e.activo&&e.idxHist>=0)html+="<button onclick='reintegrarDesdeHistorial("+e.idxHist+")' style='padding:4px 10px;background:#fff3cd;border:1px solid #c9a227;border-radius:4px;cursor:pointer;font-size:12px;color:#7a5c00;'>Reintegrar</button>";
+    if(!e.activo&&e.idxHist>=0){
+      html+="<button onclick='reintegrarDesdeHistorial("+e.idxHist+")' style='padding:4px 10px;background:#fff3cd;border:1px solid #c9a227;border-radius:4px;cursor:pointer;font-size:12px;color:#7a5c00;margin-right:4px;'>Reintegrar</button>";
+      if(sesion.rol==="admin")html+="<button onclick='editarRegistroArchivado("+e.idxHist+")' style='padding:4px 10px;background:#e3f0ff;border:1px solid #1a6bb5;border-radius:4px;cursor:pointer;font-size:12px;color:#1a3a6b;'>✏️ Editar</button>";
+    }
     html+="</td></tr>";
   });
   var total=lista.reduce(function(a,e){return a+nm(e.valor);},0);
   html+="<tr style='background:#f5f5f5;'><td colspan='7' style='padding:7px;text-align:right;font-weight:bold;'>Total ("+lista.length+" registros):</td><td style='padding:7px;font-weight:bold;color:#1a6bb5;font-size:15px;'>"+fmt(total)+"</td><td colspan='2'></td></tr>";
   html+="</tbody></table>";
   el.innerHTML=html;
+}
+
+function editarRegistroArchivado(idx){
+  if(sesion.rol!=="admin"){alert("Solo el administrador puede editar.");return;}
+  var e=historialesEst[idx];if(!e){alert("No encontrado.");return;}
+  var nuevoValor=prompt("Editar registro: "+e.huesped+"\nHab: "+e.hab+" | Entrada: "+e.entrada+"\n\nValor actual: "+fmt(e.valor)+"\nNuevo valor:",nm(e.valor));
+  if(nuevoValor===null)return;
+  var v=parseFloat(String(nuevoValor).replace(/[.,\s]/g,""));
+  if(isNaN(v)||v<0){alert("Valor inválido.");return;}
+  var nuevoPago=prompt("Forma de pago actual: "+(e.pago||"")+" \nNueva forma de pago (dejar vacío para no cambiar):");
+  if(nuevoPago===null)return;
+  historialesEst[idx].valor=v;
+  if(nuevoPago.trim())historialesEst[idx].pago=nuevoPago.trim();
+  guardar();
+  alert("Registro actualizado.");
+  openHistorial();
 }
 
 function reintegrarDesdeHistorial(idx){
