@@ -321,16 +321,9 @@ td{padding:4px 6px;vertical-align:middle;}
           <option>Luz</option><option>Agua</option><option>Gas</option>
           <option>TV Cable</option><option>Internet</option><option>Tel&#233;fono</option>
         </select>
-        <!-- NOM: select turnos + agregar nuevo con prefijo Turno -->
+        <!-- NOM: texto libre -->
         <div id="g-desc-nom-wrap" style="display:none;">
-          <select id="g-desc-nom-sel-turno" style="width:240px;padding:7px 9px;border:1px solid #ccc;border-radius:6px;font-size:14px;">
-            <option value="">-- Seleccionar turno --</option>
-          </select>
-          <div style="display:flex;gap:6px;margin-top:6px;align-items:center;">
-            <span style="padding:7px 10px;background:#f0f0f0;border:1px solid #ccc;border-radius:6px 0 0 6px;font-size:14px;color:#555;white-space:nowrap;border-right:none;">Turno</span>
-            <input type="text" id="g-desc-nom-nombre" placeholder="mary, ovidio..." style="flex:1;padding:7px 9px;border:1px solid #ccc;border-radius:0 6px 6px 0;font-size:14px;min-width:100px;"/>
-            <button onclick="agregarTurnoNom()" class="tbtn" style="font-size:12px;padding:6px 12px;background:#2d6a3f;color:#fff;border-color:#2d6a3f;font-weight:bold;white-space:nowrap;">+ Guardar</button>
-          </div>
+          <input type="text" id="g-desc-nom-texto" placeholder="Ej: Turno mary, Turno mary prima, Turno ovidio vacaciones..." style="width:320px;padding:7px 9px;border:1px solid #ccc;border-radius:6px;font-size:14px;"/>
         </div>
         <!-- NOM GP: select con entradas GP + agregar nuevo con prefijo GP -->
         <div id="g-desc-nomgp-wrap" style="display:none;">
@@ -1580,7 +1573,7 @@ function agregarItemNom(){
 function getDesc(){
   var cat=document.getElementById("g-cat").value;
   if(cat==="SP")return document.getElementById("g-desc-sp").value;
-  if(cat==="NOM"){var sel=document.getElementById("g-desc-nom-sel-turno");return sel?sel.value:"";}
+  if(cat==="NOM"){var t=document.getElementById("g-desc-nom-texto");return t?t.value.trim():"";}
   if(cat.toUpperCase().startsWith("NOM")){var sel2=document.getElementById("g-desc-nom-sel");return sel2?sel2.value:"";}
   if(cat==="ASEO")return document.getElementById("g-desc-aseo-final").value;
   return document.getElementById("g-desc-libre").value;
