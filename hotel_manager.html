@@ -422,9 +422,42 @@ var HABS=[];Object.values(PISOS).forEach(function(a){a.forEach(function(h){HABS.
 var CANALES=["","Hotel","Booking","Ayenda","Liquidos","Vitrina"];
 var PAGOS=["","Efectivo","Nequi","Bancolombia","Bold","Ayenda","Daviplata"];
 var CAJAS_LIST=["Efectivo","Nequi","Bancolombia","Bold","Daviplata"];
-var CATS={SP:"Servicios publicos",MTO:"Mantenimiento",NOM:"Nomina",ASEO:"Productos aseo",OTR:"Otros",BOOK:"Booking",LIQ:"Liquidos y vitrina"};
-var CAT_COLORS={SP:"#e3f0ff",MTO:"#fff3cd",NOM:"#d4edda",ASEO:"#e8f5e9",OTR:"#f0f0f0",BOOK:"#fce4ec",LIQ:"#e8f5e9"};
-var CAT_TEXT={SP:"#1a4a80",MTO:"#7a5c00",NOM:"#2d6a3f",ASEO:"#1a5c2a",OTR:"#555",BOOK:"#880e4f",LIQ:"#1b5e20"};
+var CATS_BASE={SP:"Servicios publicos",MTO:"Mantenimiento",NOM:"Nomina",ASEO:"Productos aseo",OTR:"Otros",BOOK:"Booking",LIQ:"Liquidos y vitrina"};
+var CAT_COLORS_BASE={SP:"#e3f0ff",MTO:"#fff3cd",NOM:"#d4edda",ASEO:"#e8f5e9",OTR:"#f0f0f0",BOOK:"#fce4ec",LIQ:"#e8f5e9"};
+var CAT_TEXT_BASE={SP:"#1a4a80",MTO:"#7a5c00",NOM:"#2d6a3f",ASEO:"#1a5c2a",OTR:"#555",BOOK:"#880e4f",LIQ:"#1b5e20"};
+var CATS_CUSTOM={}; // {codigo: nombre} guardadas en DB
+var CATS=Object.assign({},CATS_BASE);
+var CAT_COLORS=Object.assign({},CAT_COLORS_BASE);
+var CAT_TEXT=Object.assign({},CAT_TEXT_BASE);
+
+function reconstruirCats(){
+  CATS=Object.assign({},CATS_BASE,CATS_CUSTOM);
+  Object.keys(CATS_CUSTOM).forEach(function(c){
+    if(!CAT_COLORS[c])CAT_COLORS[c]="#ede8fb";
+    if(!CAT_TEXT[c])CAT_TEXT[c]="#5c3ec9";
+  });
+  // Actualizar todos los <select> de categoría
+  ["g-cat","filtro-cat"].forEach(function(id){
+    var sel=document.getElementById(id);
+    if(!sel)return;
+    // Guardar valor actual
+    var val=sel.value;
+    // Limpiar opciones custom (no las base)
+    var toRemove=[];
+    for(var i=0;i<sel.options.length;i++){
+      var v=sel.options[i].value;
+      if(v&&!CATS_BASE[v])toRemove.push(i);
+    }
+    for(var j=toRemove.length-1;j>=0;j--)sel.remove(toRemove[j]);
+    // Agregar custom
+    Object.keys(CATS_CUSTOM).sort().forEach(function(c){
+      var o=document.createElement("option");
+      o.value=c;o.textContent=c+" — "+CATS_CUSTOM[c];
+      sel.appendChild(o);
+    });
+    sel.value=val;
+  });
+}
 var USUARIOS={
   ch:{pass:"3720",rol:"admin",nombre:"Administrador"},
   R1:{pass:"690",rol:"recepcionista",nombre:"Recepcionista 1"},
@@ -521,6 +554,7 @@ function cargar(){
       if(d.hotel_saldo){saldoInicial=d.hotel_saldo;CAJAS_LIST.forEach(function(c){var el=document.getElementById("si-"+c);if(el&&saldoInicial[c])el.value=saldoInicial[c];});}
       if(d.hotel_ajustes)ajustes=d.hotel_ajustes;
       if(d.hotel_nom&&Array.isArray(d.hotel_nom)){var dl=document.getElementById("lista-nom");if(dl){var base=["Turno recepción","Turno camarera","Sueldo mensual","Retiro propietario","CH"];d.hotel_nom.forEach(function(v){if(v&&base.indexOf(v)<0){var existe=false;for(var i=0;i<dl.options.length;i++){if(dl.options[i].value===v){existe=true;break;}}if(!existe){var o=document.createElement("option");o.value=v;dl.appendChild(o);}}});}}
+      if(d.hotel_cats_custom&&typeof d.hotel_cats_custom==="object"){CATS_CUSTOM=d.hotel_cats_custom;reconstruirCats();}
     }catch(e){console.error("Error cargando:",e);}
     _datosListos=true;
   }).catch(function(e){console.error("Error cargando:",e);_datosListos=true;});
@@ -2310,7 +2344,76 @@ function getNomList(){
 
 function abrirAdminNom(){
   if(sesion.rol!=="admin"){alert("Solo el administrador puede editar esta lista.");return;}
-  renderAdminNom();
+  renderAdminCats();
+}
+
+function renderAdminCats(){
+  var html="<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;'>";
+  html+="<h3 style='margin:0;'>&#9881; Administrar Categorías</h3>";
+  html+="<button class='tbtn' onclick='closeOverlay()'>&#10005; Cerrar</button></div>";
+  html+="<div style='background:#ede8fb;border:1px solid #5c3ec9;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#3a1a9a;'>";
+  html+="Agregue categorías personalizadas (ej: <b>NOM GP</b>, <b>NOM Juan</b>). Aparecerán en el menú de Categoría al registrar gastos.";
+  html+="</div>";
+  // Formulario agregar
+  html+="<div style='display:flex;gap:8px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap;'>";
+  html+="<div style='display:flex;flex-direction:column;gap:3px;'><label style='font-size:11px;font-weight:bold;color:#555;'>Código (ej: NOM GP)</label>";
+  html+="<input type='text' id='cat-codigo' placeholder='NOM GP' style='padding:8px 10px;border:2px solid #5c3ec9;border-radius:6px;font-size:14px;width:130px;' onkeydown='if(event.key===\"Enter\")document.getElementById(\"cat-nombre\").focus()'/></div>";
+  html+="<div style='display:flex;flex-direction:column;gap:3px;flex:1;min-width:150px;'><label style='font-size:11px;font-weight:bold;color:#555;'>Nombre descriptivo (ej: Nómina GP)</label>";
+  html+="<input type='text' id='cat-nombre' placeholder='Nómina GP' style='padding:8px 10px;border:2px solid #5c3ec9;border-radius:6px;font-size:14px;' onkeydown='if(event.key===\"Enter\")agregarCatCustom()'/></div>";
+  html+="<button class='tbtn' onclick='agregarCatCustom()' style='background:#5c3ec9;color:#fff;border-color:#5c3ec9;font-weight:bold;padding:8px 18px;'>+ Agregar</button>";
+  html+="</div>";
+  // Categorías base (no editables)
+  html+="<div style='font-size:12px;font-weight:bold;color:#888;margin-bottom:6px;'>Categorías fijas (no se pueden eliminar):</div>";
+  html+="<div style='display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;'>";
+  Object.keys(CATS_BASE).forEach(function(c){
+    var bg=CAT_COLORS_BASE[c]||"#f0f0f0";var tc=CAT_TEXT_BASE[c]||"#333";
+    html+="<span style='background:"+bg+";color:"+tc+";padding:4px 12px;border-radius:12px;font-size:12px;font-weight:bold;'>"+c+" — "+CATS_BASE[c]+"</span>";
+  });
+  html+="</div>";
+  // Categorías custom
+  html+="<div style='font-size:12px;font-weight:bold;color:#5c3ec9;margin-bottom:6px;'>Categorías personalizadas:</div>";
+  var keys=Object.keys(CATS_CUSTOM);
+  if(!keys.length){
+    html+="<div style='color:#aaa;font-size:13px;padding:10px;'>Aún no hay categorías personalizadas.</div>";
+  } else {
+    html+="<div style='display:flex;flex-direction:column;gap:6px;'>";
+    keys.sort().forEach(function(c){
+      html+="<div style='display:flex;justify-content:space-between;align-items:center;background:#ede8fb;border:1px solid #c4b5f7;border-radius:6px;padding:8px 14px;'>";
+      html+="<span style='font-size:14px;font-weight:bold;color:#3a1a9a;'>"+esc(c)+"</span>";
+      html+="<span style='font-size:13px;color:#555;margin:0 12px;flex:1;'>"+esc(CATS_CUSTOM[c])+"</span>";
+      html+="<button onclick='eliminarCatCustom(\""+c+"\")' style='border:none;background:#fde;color:#c00;border-radius:5px;padding:4px 12px;cursor:pointer;font-size:13px;font-weight:bold;'>&#10005; Eliminar</button>";
+      html+="</div>";
+    });
+    html+="</div>";
+  }
+  showOverlay(html,false);
+  setTimeout(function(){var el=document.getElementById("cat-codigo");if(el)el.focus();},80);
+}
+
+function agregarCatCustom(){
+  var codigo=((document.getElementById("cat-codigo")||{}).value||"").trim().toUpperCase();
+  var nombre=((document.getElementById("cat-nombre")||{}).value||"").trim();
+  if(!codigo||!nombre){alert("Escribe código y nombre.");return;}
+  if(CATS_BASE[codigo]){alert("Ese código ya existe como categoría fija.");return;}
+  CATS_CUSTOM[codigo]=nombre;
+  reconstruirCats();
+  _guardarCatsCustom();
+  renderAdminCats();
+}
+
+function eliminarCatCustom(c){
+  if(!confirm("Eliminar categoría '"+c+"'?\nLos gastos ya registrados con esta categoría no se borran."))return;
+  delete CATS_CUSTOM[c];
+  delete CAT_COLORS[c];
+  delete CAT_TEXT[c];
+  reconstruirCats();
+  _guardarCatsCustom();
+  renderAdminCats();
+}
+
+function _guardarCatsCustom(){
+  fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hotel_cats_custom:CATS_CUSTOM})})
+    .then(function(){var m=document.getElementById("saved-msg");if(m){m.textContent="Categorías guardadas";m.style.color="#5c3ec9";setTimeout(function(){m.textContent="";},2000);}});
 }
 
 function renderAdminNom(){
@@ -2412,8 +2515,9 @@ function calcUtilidadesNetas(){
   var totalTienda=ventasTienda.reduce(function(a,v){return a+v.total;},0);
   var totalVentas=totalHabArch+totalHabAct;
 
-  // ── GASTOS SP, MTO, NOM, ASEO, BOOK ──
+  // ── GASTOS SP, MTO, NOM, ASEO, BOOK + cualquier categoría que empiece con NOM ──
   var CATS_UTIL=["SP","MTO","NOM","ASEO","BOOK"];
+  Object.keys(CATS_CUSTOM).forEach(function(c){if(c.toUpperCase().startsWith("NOM")&&CATS_UTIL.indexOf(c)<0)CATS_UTIL.push(c);});
   var gastosMes=gastosDetalle.filter(function(g){return (g.fecha||"").startsWith(mes);});
   var porCat={};
   CATS_UTIL.forEach(function(c){porCat[c]=0;});
