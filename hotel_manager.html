@@ -517,6 +517,7 @@ function cargar(){
       if(d.hotel_compras)comprasTienda=d.hotel_compras;
       if(d.hotel_saldo){saldoInicial=d.hotel_saldo;CAJAS_LIST.forEach(function(c){var el=document.getElementById("si-"+c);if(el&&saldoInicial[c])el.value=saldoInicial[c];});}
       if(d.hotel_ajustes)ajustes=d.hotel_ajustes;
+      if(d.hotel_nom&&Array.isArray(d.hotel_nom)){var dl=document.getElementById("lista-nom");if(dl){var base=["Turno recepción","Turno camarera","Sueldo mensual","Retiro propietario","CH"];d.hotel_nom.forEach(function(v){if(v&&base.indexOf(v)<0){var existe=false;for(var i=0;i<dl.options.length;i++){if(dl.options[i].value===v){existe=true;break;}}if(!existe){var o=document.createElement("option");o.value=v;dl.appendChild(o);}}});}}
     }catch(e){console.error("Error cargando:",e);}
     _datosListos=true;
   }).catch(function(e){console.error("Error cargando:",e);_datosListos=true;});
