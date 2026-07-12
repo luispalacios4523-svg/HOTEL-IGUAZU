@@ -1527,6 +1527,10 @@ function agregarItemNom(){
   // Guardar solo los items que NO son base
   var custom=[];
   for(var j=0;j<dl.options.length;j++){var v=dl.options[j].value;if(NOM_BASE.indexOf(v)<0)custom.push(v);}
+  // Refrescar datalist: quitar y volver a poner el atributo list
+  var inp=document.getElementById("g-desc-nom");
+  inp.removeAttribute("list");
+  setTimeout(function(){inp.setAttribute("list","lista-nom");inp.value="";inp.focus();},50);
   fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hotel_nom:custom})})
     .then(function(){var m=document.getElementById("saved-msg");if(m){m.textContent='"'+val+'" guardado en lista';m.style.color="#5c3ec9";setTimeout(function(){m.textContent="";},3000);}});
 }
