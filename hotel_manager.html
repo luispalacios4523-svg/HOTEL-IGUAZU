@@ -321,9 +321,16 @@ td{padding:4px 6px;vertical-align:middle;}
           <option>Luz</option><option>Agua</option><option>Gas</option>
           <option>TV Cable</option><option>Internet</option><option>Tel&#233;fono</option>
         </select>
-        <!-- NOM: texto libre -->
+        <!-- NOM: select desplegable Turno* + agregar nuevo -->
         <div id="g-desc-nom-wrap" style="display:none;">
-          <input type="text" id="g-desc-nom-texto" placeholder="Ej: Turno mary, Turno mary prima, Turno ovidio vacaciones..." style="width:320px;padding:7px 9px;border:1px solid #ccc;border-radius:6px;font-size:14px;"/>
+          <select id="g-desc-nom-sel-turno" style="width:240px;padding:7px 9px;border:1px solid #ccc;border-radius:6px;font-size:14px;">
+            <option value="">-- Seleccionar --</option>
+          </select>
+          <div style="display:flex;gap:6px;margin-top:6px;align-items:center;">
+            <span style="padding:7px 10px;background:#f0f0f0;border:1px solid #ccc;border-radius:6px 0 0 6px;font-size:14px;color:#555;white-space:nowrap;border-right:none;">Turno</span>
+            <input type="text" id="g-desc-nom-nombre" placeholder="mary, ovidio vacaciones..." style="flex:1;padding:7px 9px;border:1px solid #ccc;border-radius:0 6px 6px 0;font-size:14px;min-width:100px;"/>
+            <button onclick="agregarTurnoNom()" class="tbtn" style="font-size:12px;padding:6px 12px;background:#2d6a3f;color:#fff;border-color:#2d6a3f;font-weight:bold;">+ Guardar</button>
+          </div>
         </div>
         <!-- NOM GP: select con entradas GP + agregar nuevo con prefijo GP -->
         <div id="g-desc-nomgp-wrap" style="display:none;">
@@ -1531,7 +1538,7 @@ function toggleDescGasto(){
   var cat=document.getElementById("g-cat").value;
   ["g-desc-sp","g-desc-nom-wrap","g-desc-nomgp-wrap","g-desc-aseo-wrap","g-desc-libre"].forEach(function(id){var el=document.getElementById(id);if(el)el.style.display="none";});
   if(cat==="SP")document.getElementById("g-desc-sp").style.display="block";
-  else if(cat==="NOM"){document.getElementById("g-desc-nom-wrap").style.display="block";setTimeout(function(){var el=document.getElementById("g-desc-nom-texto");if(el)el.focus();},50);}
+  else if(cat==="NOM"){document.getElementById("g-desc-nom-wrap").style.display="block";setTimeout(function(){var el=document.getElementById("g-desc-nom-sel-turno");if(el)el.focus();},50);}
   else if(cat.toUpperCase().startsWith("NOM"))document.getElementById("g-desc-nomgp-wrap").style.display="block";
   else if(cat==="ASEO"){document.getElementById("g-desc-aseo-wrap").style.display="block";limpiarChips();}
   else document.getElementById("g-desc-libre").style.display="block";
@@ -1573,7 +1580,7 @@ function agregarItemNom(){
 function getDesc(){
   var cat=document.getElementById("g-cat").value;
   if(cat==="SP")return document.getElementById("g-desc-sp").value;
-  if(cat==="NOM"){var t=document.getElementById("g-desc-nom-texto");return t?t.value.trim():"";}
+  if(cat==="NOM"){var sel=document.getElementById("g-desc-nom-sel-turno");return sel?sel.value:"";}
   if(cat.toUpperCase().startsWith("NOM")){var sel2=document.getElementById("g-desc-nom-sel");return sel2?sel2.value:"";}
   if(cat==="ASEO")return document.getElementById("g-desc-aseo-final").value;
   return document.getElementById("g-desc-libre").value;
