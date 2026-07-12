@@ -352,6 +352,7 @@ td{padding:4px 6px;vertical-align:middle;}
     <button class="tbtn" onclick="exportarGastos()">&#128203; Reporte</button>
     <button class="tbtn tbtn-green" onclick="reporteMensualGastos()" style="font-weight:bold;">&#128202; Reporte mensual</button>
     <label class="tbtn tbtn-blue" style="cursor:pointer;">&#128229; Importar FileMaker<input type="file" accept=".xlsx,.csv" onchange="importarGastosFileMaker(this)" style="display:none;"></label>
+    <button id="btn-admin-nom" class="tbtn" onclick="abrirAdminNom()" style="display:none;background:#5c3ec9;color:#fff;border-color:#5c3ec9;font-weight:bold;">&#9881; Administrar NOM</button>
   </div>
   <div style="overflow-x:auto;">
     <table style="width:100%;border-collapse:collapse;font-size:13px;">
@@ -462,6 +463,8 @@ function aplicarPermisos(){
   msg.textContent="Bienvenido, "+sesion.nombre;msg.style.color="#1a6bb5";
   setTimeout(function(){msg.textContent="";},3000);
   // Ocultar elementos según rol
+  var btnAdminNom=document.getElementById("btn-admin-nom");
+  if(btnAdminNom)btnAdminNom.style.display=esAdmin?"":"none";
   if(!esAdmin){
     // Ocultar exportar, importar, limpiar historial, caja
     var exportBtn=document.querySelector('[onclick="exportarDatos()"]');
@@ -2297,6 +2300,76 @@ function renderProfit(){
 
   
 // ── FIN TIENDA ────────────────────────────────────────────────────────────────
+
+function getNomList(){
+  var dl=document.getElementById("lista-nom");
+  var items=[];
+  for(var i=0;i<dl.options.length;i++)items.push(dl.options[i].value);
+  return items;
+}
+
+function abrirAdminNom(){
+  if(sesion.rol!=="admin"){alert("Solo el administrador puede editar esta lista.");return;}
+  renderAdminNom();
+}
+
+function renderAdminNom(){
+  var items=getNomList();
+  var html="<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;'>";
+  html+="<h3 style='margin:0;'>&#9881; Administrar lista NOM</h3>";
+  html+="<button class='tbtn' onclick='closeOverlay()'>&#10005; Cerrar</button>";
+  html+="</div>";
+  html+="<div style='background:#e3f0ff;border:1px solid #3a7fc1;border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:#1a4a80;'>";
+  html+="Aquí puede agregar o eliminar los miembros de la lista de Nómina. Solo el administrador puede hacer cambios.";
+  html+="</div>";
+  // Agregar nuevo
+  html+="<div style='display:flex;gap:8px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap;'>";
+  html+="<div style='display:flex;flex-direction:column;gap:3px;flex:1;min-width:180px;'>";
+  html+="<label style='font-size:12px;font-weight:bold;color:#555;'>Nuevo miembro:</label>";
+  html+="<input type='text' id='nom-nuevo' placeholder='Ej: Juan, GP, Camarera 2...' style='padding:8px 12px;border:2px solid #5c3ec9;border-radius:6px;font-size:14px;' onkeydown='if(event.key===\"Enter\")guardarNuevoNom()'/>";
+  html+="</div>";
+  html+="<button class='tbtn' onclick='guardarNuevoNom()' style='background:#5c3ec9;color:#fff;border-color:#5c3ec9;font-weight:bold;padding:8px 18px;'>+ Agregar</button>";
+  html+="</div>";
+  // Lista actual
+  html+="<div style='font-size:13px;font-weight:bold;color:#555;margin-bottom:8px;'>Miembros actuales:</div>";
+  if(!items.length){
+    html+="<div style='color:#aaa;padding:12px;'>No hay miembros en la lista.</div>";
+  } else {
+    html+="<div style='display:flex;flex-direction:column;gap:6px;'>";
+    items.forEach(function(v,i){
+      html+="<div style='display:flex;justify-content:space-between;align-items:center;background:#f9f9f9;border:1px solid #ddd;border-radius:6px;padding:8px 14px;'>";
+      html+="<span style='font-size:14px;'>"+esc(v)+"</span>";
+      html+="<button onclick='eliminarNom("+i+")' style='border:none;background:#fde;color:#c00;border-radius:5px;padding:4px 12px;cursor:pointer;font-size:13px;font-weight:bold;'>&#10005; Eliminar</button>";
+      html+="</div>";
+    });
+    html+="</div>";
+  }
+  showOverlay(html,false);
+  setTimeout(function(){var el=document.getElementById("nom-nuevo");if(el)el.focus();},80);
+}
+
+function guardarNuevoNom(){
+  var val=(document.getElementById("nom-nuevo").value||"").trim();
+  if(!val){alert("Escribe un nombre.");return;}
+  var dl=document.getElementById("lista-nom");
+  for(var i=0;i<dl.options.length;i++){if(dl.options[i].value===val){alert("Ya existe ese nombre en la lista.");return;}}
+  var o=document.createElement("option");o.value=val;dl.appendChild(o);
+  _guardarListaNom();
+  renderAdminNom();
+}
+
+function eliminarNom(idx){
+  var dl=document.getElementById("lista-nom");
+  if(idx>=0&&idx<dl.options.length)dl.remove(idx);
+  _guardarListaNom();
+  renderAdminNom();
+}
+
+function _guardarListaNom(){
+  var items=getNomList();
+  fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hotel_nom:items})})
+    .then(function(){var m=document.getElementById("saved-msg");if(m){m.textContent="Lista NOM guardada";m.style.color="#5c3ec9";setTimeout(function(){m.textContent="";},2000);}});
+}
 
 function openUtilidadesNetas(){
   var hoy=new Date();
