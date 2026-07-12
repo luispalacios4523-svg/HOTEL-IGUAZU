@@ -1625,6 +1625,7 @@ function registrarGasto(){
   var fecha=document.getElementById("g-fecha").value;var monto=parseFloat(document.getElementById("g-monto").value)||0;
   var cat=document.getElementById("g-cat").value;var desc=getDesc().trim();var pago=document.getElementById("g-pago").value;
   if(!fecha||!monto||!cat||!desc||!pago){alert("Completa todos los campos incluyendo Forma de pago.");return;}
+  if(cat==="NOM"&&!desc.trim().toLowerCase().startsWith("turno")){alert("Para NOM la descripción debe empezar con 'Turno'. Ejemplo: Turno mary, Turno ovidio vacaciones.");return;}
   gastosDetalle.push({id:Date.now(),fecha:fecha,monto:monto,cat:cat,desc:desc,pago:pago});
   document.getElementById("g-monto").value="";
   document.getElementById("g-pago").value="";
