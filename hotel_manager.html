@@ -2336,7 +2336,7 @@ function calcUtilidadesNetas(){
     return false;
   });
   var totalTienda=ventasTienda.reduce(function(a,v){return a+v.total;},0);
-  var totalVentas=totalHabArch+totalHabAct+totalTienda;
+  var totalVentas=totalHabArch+totalHabAct;
 
   // ── GASTOS SP, MTO, NOM, ASEO, BOOK ──
   var CATS_UTIL=["SP","MTO","NOM","ASEO","BOOK"];
