@@ -2534,12 +2534,15 @@ function calcUtilidadesNetas(){
   var nombreMes=new Date(+partes[0],+partes[1]-1,1).toLocaleDateString("es-CO",{month:"long",year:"numeric"}).toUpperCase();
 
   // ── TOTAL VENTAS (todas las formas de pago) ──
-  // Habitaciones archivadas del mes
-  var habArch=historialesEst.filter(function(e){return (e.entrada||"").startsWith(mes);});
+  // Habitaciones archivadas: filtrar por fecha de SALIDA (cuando pagaron y se fueron)
+  var habArch=historialesEst.filter(function(e){
+    var fechaRef=e.salida||e.entrada||"";
+    return fechaRef.startsWith(mes);
+  });
   var totalHabArch=habArch.reduce(function(a,e){return a+nm(e.valor);},0);
-  // Habitaciones activas con entrada en el mes
+  // Habitaciones activas actualmente en el hotel (aún no archivadas)
   var totalHabAct=0;
-  HABS.forEach(function(h){if((reg[h].fechaEntrada||"").startsWith(mes)&&nm(reg[h].valor)>0)totalHabAct+=nm(reg[h].valor);});
+  HABS.forEach(function(h){if(nc(h).trim()&&nm(reg[h].valor)>0)totalHabAct+=nm(reg[h].valor);});
   // Ventas tienda del mes
   var ventasTienda=historialVentas.filter(function(v){
     var f=v.fecha||"";
@@ -2578,7 +2581,7 @@ function calcUtilidadesNetas(){
   html+="<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px;'>";
   var tarjetas=[
     {label:"Habitaciones archivadas",val:totalHabArch,bg:"#e3f0ff",col:"#1a4a80"},
-    {label:"Habitaciones activas (entrada en el mes)",val:totalHabAct,bg:"#e3f0ff",col:"#1a4a80"},
+    {label:"Habitaciones activas (aún en el hotel)",val:totalHabAct,bg:"#e3f0ff",col:"#1a4a80"},
     {label:"Tienda",val:totalTienda,bg:"#e3f0ff",col:"#1a4a80"},
     {label:"TOTAL VENTAS",val:totalVentas,bg:"#d4edda",col:"#2d6a3f",big:true},
     {label:"Gastos (SP+MTO+NOM+ASEO+BOOK)",val:totalGastosUtil,bg:"#fde",col:"#c00",big:true},
