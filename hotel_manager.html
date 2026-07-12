@@ -332,15 +332,15 @@ td{padding:4px 6px;vertical-align:middle;}
             <button onclick="agregarTurnoNom()" class="tbtn" style="font-size:12px;padding:6px 12px;background:#2d6a3f;color:#fff;border-color:#2d6a3f;font-weight:bold;white-space:nowrap;">+ Guardar</button>
           </div>
         </div>
-        <!-- NOM GP y otras NOM* custom: select + guardar en lista -->
+        <!-- NOM GP: select con entradas GP + agregar nuevo con prefijo GP -->
         <div id="g-desc-nomgp-wrap" style="display:none;">
-          <select id="g-desc-nom-sel" style="width:220px;padding:7px 9px;border:1px solid #ccc;border-radius:6px;font-size:14px;">
+          <select id="g-desc-nom-sel" style="width:240px;padding:7px 9px;border:1px solid #ccc;border-radius:6px;font-size:14px;">
             <option value="">-- Seleccionar --</option>
-            <option>Turno recepci&#243;n</option><option>Turno camarera</option><option>Sueldo mensual</option><option>Retiro propietario</option><option>CH</option>
           </select>
           <div style="display:flex;gap:6px;margin-top:6px;align-items:center;">
-            <input type="text" id="g-desc-nom-nuevo" placeholder="O escribe nuevo nombre..." style="flex:1;padding:6px 9px;border:1px solid #ccc;border-radius:6px;font-size:13px;"/>
-            <button onclick="agregarItemNom()" class="tbtn" style="font-size:12px;padding:6px 12px;background:#5c3ec9;color:#fff;border-color:#5c3ec9;font-weight:bold;white-space:nowrap;">+ Guardar</button>
+            <span style="padding:7px 10px;background:#f0f0f0;border:1px solid #ccc;border-radius:6px 0 0 6px;font-size:14px;color:#555;white-space:nowrap;border-right:none;">GP</span>
+            <input type="text" id="g-desc-nomgp-nombre" placeholder="cadena nancy, cc..." style="flex:1;padding:7px 9px;border:1px solid #ccc;border-radius:0 6px 6px 0;font-size:14px;min-width:100px;"/>
+            <button onclick="agregarItemNomGp()" class="tbtn" style="font-size:12px;padding:6px 12px;background:#5c3ec9;color:#fff;border-color:#5c3ec9;font-weight:bold;white-space:nowrap;">+ Guardar</button>
           </div>
         </div>
         <div id="g-desc-aseo-wrap" style="display:none;max-width:360px;">
@@ -575,6 +575,7 @@ function cargar(){
       if(d.hotel_ajustes)ajustes=d.hotel_ajustes;
       if(d.hotel_nom&&Array.isArray(d.hotel_nom)){d.hotel_nom.forEach(function(v){if(v)agregarNomOpcion(v);});}
       if(d.hotel_nom_turnos&&Array.isArray(d.hotel_nom_turnos)){d.hotel_nom_turnos.forEach(function(v){if(v)agregarTurnoOpcion(v);});}
+      if(d.hotel_nom_gp&&Array.isArray(d.hotel_nom_gp)){d.hotel_nom_gp.forEach(function(v){if(v)agregarNomGpOpcion(v);});}
       if(d.hotel_cats_custom&&typeof d.hotel_cats_custom==="object"){CATS_CUSTOM=d.hotel_cats_custom;reconstruirCats();}
     }catch(e){console.error("Error cargando:",e);}
     _datosListos=true;
@@ -1602,6 +1603,27 @@ function agregarTurnoNom(){
 
 function agregarTurnoOpcion(val){
   var sel=document.getElementById("g-desc-nom-sel-turno");
+  if(!sel)return;
+  for(var i=0;i<sel.options.length;i++){if(sel.options[i].value===val)return;}
+  var o=document.createElement("option");o.value=val;o.textContent=val;sel.appendChild(o);
+}
+
+function agregarItemNomGp(){
+  var nombre=(document.getElementById("g-desc-nomgp-nombre").value||"").trim();
+  if(!nombre){alert("Escribe el nombre después de GP.");return;}
+  var val="GP "+nombre;
+  var sel=document.getElementById("g-desc-nom-sel");
+  for(var i=0;i<sel.options.length;i++){if(sel.options[i].value===val){sel.value=val;alert("Ya existe.");return;}}
+  var o=document.createElement("option");o.value=val;o.textContent=val;sel.appendChild(o);
+  sel.value=val;
+  document.getElementById("g-desc-nomgp-nombre").value="";
+  var items=[];for(var j=1;j<sel.options.length;j++)items.push(sel.options[j].value);
+  fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hotel_nom_gp:items})})
+    .then(function(){var m=document.getElementById("saved-msg");if(m){m.textContent='"'+val+'" guardado';m.style.color="#5c3ec9";setTimeout(function(){m.textContent="";},2500);}});
+}
+
+function agregarNomGpOpcion(val){
+  var sel=document.getElementById("g-desc-nom-sel");
   if(!sel)return;
   for(var i=0;i<sel.options.length;i++){if(sel.options[i].value===val)return;}
   var o=document.createElement("option");o.value=val;o.textContent=val;sel.appendChild(o);
