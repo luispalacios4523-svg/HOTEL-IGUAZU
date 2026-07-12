@@ -1512,7 +1512,7 @@ function renderTienda(){
 }
 
 // GASTOS
-function toggleDescGasto(){var cat=document.getElementById("g-cat").value;["g-desc-sp","g-desc-nom-wrap","g-desc-aseo-wrap","g-desc-libre"].forEach(function(id){var el=document.getElementById(id);if(el)el.style.display="none";});if(cat==="SP")document.getElementById("g-desc-sp").style.display="block";else if(cat==="NOM")document.getElementById("g-desc-nom-wrap").style.display="block";else if(cat==="ASEO"){document.getElementById("g-desc-aseo-wrap").style.display="block";limpiarChips();}else document.getElementById("g-desc-libre").style.display="block";}
+function toggleDescGasto(){var cat=document.getElementById("g-cat").value;["g-desc-sp","g-desc-nom-wrap","g-desc-aseo-wrap","g-desc-libre"].forEach(function(id){var el=document.getElementById(id);if(el)el.style.display="none";});if(cat==="SP")document.getElementById("g-desc-sp").style.display="block";else if(cat==="NOM"||cat.toUpperCase().startsWith("NOM"))document.getElementById("g-desc-nom-wrap").style.display="block";else if(cat==="ASEO"){document.getElementById("g-desc-aseo-wrap").style.display="block";limpiarChips();}else document.getElementById("g-desc-libre").style.display="block";}
 function limpiarChips(){chipsAseo=[];renderChips();}
 function renderChips(){var cont=document.getElementById("aseo-chips");if(!cont)return;cont.innerHTML=chipsAseo.map(function(c,i){return "<span class='chip'>"+c+"<button onclick='quitarChip("+i+")' style='border:none;background:none;cursor:pointer;color:#c00;font-size:12px;padding:0;'>&#215;</button></span>";}).join("");var fin=document.getElementById("g-desc-aseo-final");if(fin)fin.value=chipsAseo.join(", ");}
 function quitarChip(i){chipsAseo.splice(i,1);renderChips();}
