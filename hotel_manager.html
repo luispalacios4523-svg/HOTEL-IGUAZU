@@ -1517,8 +1517,20 @@ function limpiarChips(){chipsAseo=[];renderChips();}
 function renderChips(){var cont=document.getElementById("aseo-chips");if(!cont)return;cont.innerHTML=chipsAseo.map(function(c,i){return "<span class='chip'>"+c+"<button onclick='quitarChip("+i+")' style='border:none;background:none;cursor:pointer;color:#c00;font-size:12px;padding:0;'>&#215;</button></span>";}).join("");var fin=document.getElementById("g-desc-aseo-final");if(fin)fin.value=chipsAseo.join(", ");}
 function quitarChip(i){chipsAseo.splice(i,1);renderChips();}
 function agregarChipAseo(){var val=document.getElementById("g-desc-aseo").value.trim();if(!val)return;if(!chipsAseo.includes(val))chipsAseo.push(val);document.getElementById("g-desc-aseo").value="";renderChips();}
-function agregarItemNom(){var val=document.getElementById("g-desc-nom").value.trim();if(!val)return;var dl=document.getElementById("lista-nom");var ex=false;for(var i=0;i<dl.options.length;i++){if(dl.options[i].value===val){ex=true;break;}}if(!ex){var o=document.createElement("option");o.value=val;dl.appendChild(o);var items=[];for(var j=0;j<dl.options.length;j++)items.push(dl.options[j].value);fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hotel_nom:items})});alert(val+" guardado.");}}
-function getDesc(){var cat=document.getElementById("g-cat").value;if(cat==="SP")return document.getElementById("g-desc-sp").value;if(cat==="NOM")return document.getElementById("g-desc-nom").value;if(cat==="ASEO")return document.getElementById("g-desc-aseo-final").value;return document.getElementById("g-desc-libre").value;}
+var NOM_BASE=["Turno recepción","Turno camarera","Sueldo mensual","Retiro propietario","CH"];
+function agregarItemNom(){
+  var val=document.getElementById("g-desc-nom").value.trim();
+  if(!val){alert("Escribe un nombre antes de guardar.");return;}
+  var dl=document.getElementById("lista-nom");
+  for(var i=0;i<dl.options.length;i++){if(dl.options[i].value===val){alert("Ya existe en la lista.");return;}}
+  var o=document.createElement("option");o.value=val;dl.appendChild(o);
+  // Guardar solo los items que NO son base
+  var custom=[];
+  for(var j=0;j<dl.options.length;j++){var v=dl.options[j].value;if(NOM_BASE.indexOf(v)<0)custom.push(v);}
+  fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hotel_nom:custom})})
+    .then(function(){var m=document.getElementById("saved-msg");if(m){m.textContent='"'+val+'" guardado en lista';m.style.color="#5c3ec9";setTimeout(function(){m.textContent="";},3000);}});
+}
+function getDesc(){var cat=document.getElementById("g-cat").value;if(cat==="SP")return document.getElementById("g-desc-sp").value;if(cat==="NOM"||cat.toUpperCase().startsWith("NOM"))return document.getElementById("g-desc-nom").value;if(cat==="ASEO")return document.getElementById("g-desc-aseo-final").value;return document.getElementById("g-desc-libre").value;}
 function registrarGasto(){
   var fecha=document.getElementById("g-fecha").value;var monto=parseFloat(document.getElementById("g-monto").value)||0;
   var cat=document.getElementById("g-cat").value;var desc=getDesc().trim();var pago=document.getElementById("g-pago").value;
