@@ -2566,8 +2566,8 @@ function calcUtilidadesNetas(){
   // ── UTILIDAD NETA ──
   var utilidadNeta=totalVentas-totalGastosUtil;
 
-  // ── NOM POR PERSONA ──
-  var nomGastos=gastosMes.filter(function(g){return g.cat==="NOM";});
+  // ── NOM POR PERSONA (incluye NOM y todas las categorías NOM*) ──
+  var nomGastos=gastosMes.filter(function(g){return g.cat==="NOM"||g.cat.toUpperCase().startsWith("NOM");});
   var nomPorPersona={};
   nomGastos.forEach(function(g){
     var desc=(g.desc||"Sin descripción").trim();
@@ -2596,48 +2596,59 @@ function calcUtilidadesNetas(){
   });
   html+="</div>";
 
-  // Detalle gastos por categoría
-  html+="<div style='display:grid;grid-template-columns:1fr 1fr;gap:16px;'>";
+  // ── Tabla de gastos por categoría (NOM* unificado en una sola fila) ──
+  var nomTotalUnif=0;
+  var CATS_NOOM=CATS_UTIL.filter(function(c){return c==="NOM"||c.toUpperCase().startsWith("NOM");});
+  CATS_NOOM.forEach(function(c){nomTotalUnif+=(porCat[c]||0);});
+  var CATS_RESTO=CATS_UTIL.filter(function(c){return c!=="NOM"&&!c.toUpperCase().startsWith("NOM");});
 
-  html+="<div>";
-  html+="<div style='font-size:13px;font-weight:bold;color:#555;margin-bottom:8px;'>Detalle gastos incluidos:</div>";
-  html+="<table style='width:100%;border-collapse:collapse;font-size:13px;'>";
-  html+="<thead><tr style='background:#f0f0f0;'><th style='padding:7px;text-align:left;'>Categoría</th><th style='padding:7px;text-align:right;'>Monto</th></tr></thead><tbody>";
-  CATS_UTIL.forEach(function(c){
+  html+="<div style='margin-bottom:20px;'>";
+  html+="<div style='font-size:13px;font-weight:bold;color:#555;margin-bottom:8px;'>Detalle de gastos incluidos:</div>";
+  html+="<table style='width:100%;border-collapse:collapse;font-size:13px;max-width:500px;'>";
+  html+="<thead><tr style='background:#f0f0f0;'><th style='padding:8px 10px;text-align:left;'>Categoría</th><th style='padding:8px 10px;text-align:right;'>Monto</th></tr></thead><tbody>";
+  CATS_RESTO.forEach(function(c){
     var bg=CAT_COLORS[c]||"#f9f9f9";var tc=CAT_TEXT[c]||"#333";
     html+="<tr style='border-bottom:1px solid #eee;'>";
-    html+="<td style='padding:7px;'><span style='background:"+bg+";color:"+tc+";padding:2px 10px;border-radius:10px;font-size:12px;font-weight:bold;'>"+c+"</span> "+CATS[c]+"</td>";
-    html+="<td style='padding:7px;text-align:right;font-weight:bold;'>"+fmt(porCat[c])+"</td>";
+    html+="<td style='padding:8px 10px;'><span style='background:"+bg+";color:"+tc+";padding:2px 10px;border-radius:10px;font-size:12px;font-weight:bold;'>"+c+"</span> "+CATS[c]+"</td>";
+    html+="<td style='padding:8px 10px;text-align:right;font-weight:bold;'>"+fmt(porCat[c]||0)+"</td>";
     html+="</tr>";
   });
-  html+="<tr style='background:#fde;font-weight:bold;'><td style='padding:7px;'>TOTAL GASTOS</td><td style='padding:7px;text-align:right;color:#c00;'>"+fmt(totalGastosUtil)+"</td></tr>";
+  // NOM unificado
+  html+="<tr style='border-bottom:1px solid #eee;background:#f0fff8;'>";
+  html+="<td style='padding:8px 10px;'><span style='background:#d4edda;color:#2d6a3f;padding:2px 10px;border-radius:10px;font-size:12px;font-weight:bold;'>NOM</span> Nómina (total)</td>";
+  html+="<td style='padding:8px 10px;text-align:right;font-weight:bold;color:#2d6a3f;'>"+fmt(nomTotalUnif)+"</td>";
+  html+="</tr>";
+  html+="<tr style='background:#fde;font-weight:bold;'><td style='padding:8px 10px;'>TOTAL GASTOS</td><td style='padding:8px 10px;text-align:right;color:#c00;'>"+fmt(totalGastosUtil)+"</td></tr>";
   html+="</tbody></table>";
   html+="</div>";
 
-  // NOM por persona
-  html+="<div>";
-  html+="<div style='font-size:13px;font-weight:bold;color:#2d6a3f;margin-bottom:8px;'>NOM — Detalle por persona:</div>";
+  // ── NOM detalle por persona (tabla completa abajo) ──
+  html+="<div style='border-top:2px solid #d4edda;padding-top:16px;'>";
+  html+="<div style='font-size:13px;font-weight:bold;color:#2d6a3f;margin-bottom:10px;'>NOM — Detalle por persona:</div>";
   if(!nomGastos.length){
-    html+="<div style='color:#aaa;font-size:13px;padding:12px;'>Sin registros de nómina en este mes.</div>";
+    html+="<div style='color:#aaa;font-size:13px;'>Sin registros de nómina en este mes.</div>";
   } else {
-    html+="<table style='width:100%;border-collapse:collapse;font-size:13px;'>";
-    html+="<thead><tr style='background:#d4edda;'><th style='padding:7px;text-align:left;'>Persona / Concepto</th><th style='padding:7px;text-align:right;'>Total</th></tr></thead><tbody>";
     var nomTotal=0;
+    Object.keys(nomPorPersona).forEach(function(p){nomTotal+=nomPorPersona[p];});
+    html+="<div style='display:grid;grid-template-columns:1fr 1fr;gap:16px;'>";
+    // Subtotales por persona
+    html+="<div>";
+    html+="<table style='width:100%;border-collapse:collapse;font-size:13px;'>";
+    html+="<thead><tr style='background:#d4edda;'><th style='padding:7px;text-align:left;'>Persona / Concepto</th><th style='padding:7px;text-align:right;'>Total mes</th></tr></thead><tbody>";
     Object.keys(nomPorPersona).sort().forEach(function(persona){
-      var v=nomPorPersona[persona];
-      nomTotal+=v;
       html+="<tr style='border-bottom:1px solid #eee;'>";
       html+="<td style='padding:7px;'>"+esc(persona)+"</td>";
-      html+="<td style='padding:7px;text-align:right;font-weight:bold;color:#2d6a3f;'>"+fmt(v)+"</td>";
+      html+="<td style='padding:7px;text-align:right;font-weight:bold;color:#2d6a3f;'>"+fmt(nomPorPersona[persona])+"</td>";
       html+="</tr>";
     });
     html+="<tr style='background:#d4edda;font-weight:bold;'><td style='padding:7px;'>TOTAL NOM</td><td style='padding:7px;text-align:right;color:#2d6a3f;'>"+fmt(nomTotal)+"</td></tr>";
-    html+="</tbody></table>";
-
-    // Detalle NOM por fecha
-    html+="<div style='margin-top:10px;font-size:12px;font-weight:bold;color:#555;'>Movimientos NOM del mes:</div>";
-    html+="<div style='max-height:180px;overflow-y:auto;margin-top:6px;border:1px solid #eee;border-radius:6px;'>";
+    html+="</tbody></table></div>";
+    // Movimientos por fecha
+    html+="<div>";
+    html+="<div style='font-size:12px;font-weight:bold;color:#555;margin-bottom:6px;'>Movimientos del mes:</div>";
+    html+="<div style='max-height:260px;overflow-y:auto;border:1px solid #eee;border-radius:6px;'>";
     html+="<table style='width:100%;border-collapse:collapse;font-size:12px;'>";
+    html+="<thead><tr style='background:#f0f0f0;'><th style='padding:5px 7px;text-align:left;'>Fecha</th><th style='padding:5px 7px;text-align:left;'>Concepto</th><th style='padding:5px 7px;text-align:right;'>Monto</th></tr></thead><tbody>";
     nomGastos.sort(function(a,b){return (a.fecha||"").localeCompare(b.fecha||"");}).forEach(function(g){
       html+="<tr style='border-bottom:1px solid #f0f0f0;'>";
       html+="<td style='padding:5px 7px;color:#888;'>"+g.fecha+"</td>";
@@ -2645,9 +2656,9 @@ function calcUtilidadesNetas(){
       html+="<td style='padding:5px 7px;text-align:right;font-weight:bold;color:#2d6a3f;'>"+fmt(g.monto)+"</td>";
       html+="</tr>";
     });
-    html+="</table></div>";
+    html+="</tbody></table></div></div>";
+    html+="</div>";
   }
-  html+="</div>";
   html+="</div>";
 
   res.innerHTML=html;
