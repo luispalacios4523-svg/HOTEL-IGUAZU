@@ -117,6 +117,7 @@ td{padding:4px 6px;vertical-align:middle;}
   <button class="tbtn" onclick="openModal('buscar')">BUSCAR</button>
   <button class="tbtn tbtn-green" onclick="openResumen()">Resumen del mes</button>
   <button class="tbtn" onclick="openInforme()">Informe Ventas</button>
+  <button class="tbtn" onclick="openUtilidadesNetas()" style="background:#1a6bb5;color:#fff;border-color:#1a6bb5;font-weight:bold;">&#128202; Utilidades Netas</button>
   <button class="tbtn tbtn-purple" onclick="openHistorial()">&#128203; Historial</button>
   <button id="btn-desarch" onclick="desarchivarAyer()" style="margin-left:auto;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:bold;border:2px solid #1a6bb5;background:#e3f0ff;color:#1a3a6b;">&#128196; Cargar ayer</button>
 </div>
@@ -2295,6 +2296,146 @@ function renderProfit(){
 
   
 // ── FIN TIENDA ────────────────────────────────────────────────────────────────
+
+function openUtilidadesNetas(){
+  var hoy=new Date();
+  var mesDefault=hoy.getFullYear()+"-"+String(hoy.getMonth()+1).padStart(2,"0");
+  var html="<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;'>";
+  html+="<h3 style='margin:0;'>&#128202; Utilidades Netas</h3>";
+  html+="<button class='tbtn' onclick='closeOverlay()'>&#10005; Cerrar</button>";
+  html+="</div>";
+  html+="<div style='display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;'>";
+  html+="<label style='font-size:13px;font-weight:bold;color:#555;'>Mes:</label>";
+  html+="<input type='month' id='util-mes' value='"+mesDefault+"' style='padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:14px;'/>";
+  html+="<button class='tbtn tbtn-blue' onclick='calcUtilidadesNetas()' style='font-weight:bold;'>Calcular</button>";
+  html+="</div>";
+  html+="<div id='util-resultado'></div>";
+  showOverlay(html,true);
+  setTimeout(function(){calcUtilidadesNetas();},80);
+}
+
+function calcUtilidadesNetas(){
+  var mes=(document.getElementById("util-mes")||{}).value||"";
+  if(!mes){alert("Selecciona un mes.");return;}
+
+  var partes=mes.split("-");
+  var nombreMes=new Date(+partes[0],+partes[1]-1,1).toLocaleDateString("es-CO",{month:"long",year:"numeric"}).toUpperCase();
+
+  // ── TOTAL VENTAS (todas las formas de pago) ──
+  // Habitaciones archivadas del mes
+  var habArch=historialesEst.filter(function(e){return (e.entrada||"").startsWith(mes);});
+  var totalHabArch=habArch.reduce(function(a,e){return a+nm(e.valor);},0);
+  // Habitaciones activas con entrada en el mes
+  var totalHabAct=0;
+  HABS.forEach(function(h){if((reg[h].fechaEntrada||"").startsWith(mes)&&nm(reg[h].valor)>0)totalHabAct+=nm(reg[h].valor);});
+  // Ventas tienda del mes
+  var ventasTienda=historialVentas.filter(function(v){
+    var f=v.fecha||"";
+    if(f.startsWith(mes))return true;
+    var p=f.split("/");if(p.length>=3){var ym=p[2].substring(0,4)+"-"+p[1].padStart(2,"0");return ym===mes;}
+    return false;
+  });
+  var totalTienda=ventasTienda.reduce(function(a,v){return a+v.total;},0);
+  var totalVentas=totalHabArch+totalHabAct+totalTienda;
+
+  // ── GASTOS SP, MTO, NOM, ASEO, BOOK ──
+  var CATS_UTIL=["SP","MTO","NOM","ASEO","BOOK"];
+  var gastosMes=gastosDetalle.filter(function(g){return (g.fecha||"").startsWith(mes);});
+  var porCat={};
+  CATS_UTIL.forEach(function(c){porCat[c]=0;});
+  gastosMes.forEach(function(g){if(porCat[g.cat]!==undefined)porCat[g.cat]+=g.monto;});
+  var totalGastosUtil=CATS_UTIL.reduce(function(a,c){return a+porCat[c];},0);
+
+  // ── UTILIDAD NETA ──
+  var utilidadNeta=totalVentas-totalGastosUtil;
+
+  // ── NOM POR PERSONA ──
+  var nomGastos=gastosMes.filter(function(g){return g.cat==="NOM";});
+  var nomPorPersona={};
+  nomGastos.forEach(function(g){
+    var desc=(g.desc||"Sin descripción").trim();
+    nomPorPersona[desc]=(nomPorPersona[desc]||0)+g.monto;
+  });
+
+  var res=document.getElementById("util-resultado");
+  if(!res)return;
+  var html="<div style='font-size:15px;font-weight:bold;color:#1a6bb5;margin-bottom:14px;border-bottom:2px solid #1a6bb5;padding-bottom:8px;'>"+nombreMes+"</div>";
+
+  // Tarjetas resumen
+  html+="<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px;'>";
+  var tarjetas=[
+    {label:"Habitaciones archivadas",val:totalHabArch,bg:"#e3f0ff",col:"#1a4a80"},
+    {label:"Habitaciones activas (entrada en el mes)",val:totalHabAct,bg:"#e3f0ff",col:"#1a4a80"},
+    {label:"Tienda",val:totalTienda,bg:"#e3f0ff",col:"#1a4a80"},
+    {label:"TOTAL VENTAS",val:totalVentas,bg:"#d4edda",col:"#2d6a3f",big:true},
+    {label:"Gastos (SP+MTO+NOM+ASEO+BOOK)",val:totalGastosUtil,bg:"#fde",col:"#c00",big:true},
+    {label:"UTILIDAD NETA",val:utilidadNeta,bg:utilidadNeta>=0?"#d4edda":"#fde",col:utilidadNeta>=0?"#2d6a3f":"#c00",big:true},
+  ];
+  tarjetas.forEach(function(t){
+    html+="<div style='background:"+t.bg+";border-radius:8px;padding:12px 16px;'>";
+    html+="<div style='font-size:11px;color:#555;margin-bottom:4px;'>"+t.label+"</div>";
+    html+="<div style='font-size:"+(t.big?"22":"16")+"px;font-weight:bold;color:"+t.col+";'>"+fmt(t.val)+"</div>";
+    html+="</div>";
+  });
+  html+="</div>";
+
+  // Detalle gastos por categoría
+  html+="<div style='display:grid;grid-template-columns:1fr 1fr;gap:16px;'>";
+
+  html+="<div>";
+  html+="<div style='font-size:13px;font-weight:bold;color:#555;margin-bottom:8px;'>Detalle gastos incluidos:</div>";
+  html+="<table style='width:100%;border-collapse:collapse;font-size:13px;'>";
+  html+="<thead><tr style='background:#f0f0f0;'><th style='padding:7px;text-align:left;'>Categoría</th><th style='padding:7px;text-align:right;'>Monto</th></tr></thead><tbody>";
+  CATS_UTIL.forEach(function(c){
+    var bg=CAT_COLORS[c]||"#f9f9f9";var tc=CAT_TEXT[c]||"#333";
+    html+="<tr style='border-bottom:1px solid #eee;'>";
+    html+="<td style='padding:7px;'><span style='background:"+bg+";color:"+tc+";padding:2px 10px;border-radius:10px;font-size:12px;font-weight:bold;'>"+c+"</span> "+CATS[c]+"</td>";
+    html+="<td style='padding:7px;text-align:right;font-weight:bold;'>"+fmt(porCat[c])+"</td>";
+    html+="</tr>";
+  });
+  html+="<tr style='background:#fde;font-weight:bold;'><td style='padding:7px;'>TOTAL GASTOS</td><td style='padding:7px;text-align:right;color:#c00;'>"+fmt(totalGastosUtil)+"</td></tr>";
+  html+="</tbody></table>";
+  html+="</div>";
+
+  // NOM por persona
+  html+="<div>";
+  html+="<div style='font-size:13px;font-weight:bold;color:#2d6a3f;margin-bottom:8px;'>NOM — Detalle por persona:</div>";
+  if(!nomGastos.length){
+    html+="<div style='color:#aaa;font-size:13px;padding:12px;'>Sin registros de nómina en este mes.</div>";
+  } else {
+    html+="<table style='width:100%;border-collapse:collapse;font-size:13px;'>";
+    html+="<thead><tr style='background:#d4edda;'><th style='padding:7px;text-align:left;'>Persona / Concepto</th><th style='padding:7px;text-align:right;'>Total</th></tr></thead><tbody>";
+    var nomTotal=0;
+    Object.keys(nomPorPersona).sort().forEach(function(persona){
+      var v=nomPorPersona[persona];
+      nomTotal+=v;
+      html+="<tr style='border-bottom:1px solid #eee;'>";
+      html+="<td style='padding:7px;'>"+esc(persona)+"</td>";
+      html+="<td style='padding:7px;text-align:right;font-weight:bold;color:#2d6a3f;'>"+fmt(v)+"</td>";
+      html+="</tr>";
+    });
+    html+="<tr style='background:#d4edda;font-weight:bold;'><td style='padding:7px;'>TOTAL NOM</td><td style='padding:7px;text-align:right;color:#2d6a3f;'>"+fmt(nomTotal)+"</td></tr>";
+    html+="</tbody></table>";
+
+    // Detalle NOM por fecha
+    html+="<div style='margin-top:10px;font-size:12px;font-weight:bold;color:#555;'>Movimientos NOM del mes:</div>";
+    html+="<div style='max-height:180px;overflow-y:auto;margin-top:6px;border:1px solid #eee;border-radius:6px;'>";
+    html+="<table style='width:100%;border-collapse:collapse;font-size:12px;'>";
+    nomGastos.sort(function(a,b){return (a.fecha||"").localeCompare(b.fecha||"");}).forEach(function(g){
+      html+="<tr style='border-bottom:1px solid #f0f0f0;'>";
+      html+="<td style='padding:5px 7px;color:#888;'>"+g.fecha+"</td>";
+      html+="<td style='padding:5px 7px;'>"+esc(g.desc||"")+"</td>";
+      html+="<td style='padding:5px 7px;text-align:right;font-weight:bold;color:#2d6a3f;'>"+fmt(g.monto)+"</td>";
+      html+="</tr>";
+    });
+    html+="</table></div>";
+  }
+  html+="</div>";
+  html+="</div>";
+
+  res.innerHTML=html;
+}
+
 </script>
 </body>
 </html>
