@@ -2540,9 +2540,13 @@ function calcUtilidadesNetas(){
     return fechaRef.startsWith(mes);
   });
   var totalHabArch=habArch.reduce(function(a,e){return a+nm(e.valor);},0);
-  // Habitaciones activas actualmente en el hotel (aún no archivadas)
+  // Habitaciones activas actualmente en el hotel (aún no archivadas) con entrada en el mes
   var totalHabAct=0;
-  HABS.forEach(function(h){if(nc(h).trim()&&nm(reg[h].valor)>0)totalHabAct+=nm(reg[h].valor);});
+  HABS.forEach(function(h){
+    var v=nm(reg[h].valor);
+    var entrada=(reg[h].fechaEntrada||"");
+    if(v>0&&entrada.startsWith(mes))totalHabAct+=v;
+  });
   // Ventas tienda del mes
   var ventasTienda=historialVentas.filter(function(v){
     var f=v.fecha||"";
