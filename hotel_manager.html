@@ -359,6 +359,7 @@ td{padding:4px 6px;vertical-align:middle;}
     <button class="tbtn tbtn-green" onclick="reporteMensualGastos()" style="font-weight:bold;">&#128202; Reporte mensual</button>
     <label class="tbtn tbtn-blue" style="cursor:pointer;">&#128229; Importar FileMaker<input type="file" accept=".xlsx,.csv" onchange="importarGastosFileMaker(this)" style="display:none;"></label>
     <button id="btn-admin-nom" class="tbtn" onclick="abrirAdminNom()" style="display:none;background:#5c3ec9;color:#fff;border-color:#5c3ec9;font-weight:bold;">&#9881; Administrar NOM</button>
+    <button id="btn-migrar-nom" class="tbtn" onclick="abrirMigracionNom()" style="display:none;background:#c00;color:#fff;border-color:#c00;font-weight:bold;">&#9888; Migrar NOM&#8594;NOM GP</button>
   </div>
   <div style="overflow-x:auto;">
     <table style="width:100%;border-collapse:collapse;font-size:13px;">
@@ -504,6 +505,8 @@ function aplicarPermisos(){
   // Ocultar elementos según rol
   var btnAdminNom=document.getElementById("btn-admin-nom");
   if(btnAdminNom)btnAdminNom.style.display=esAdmin?"":"none";
+  var btnMigrar=document.getElementById("btn-migrar-nom");
+  if(btnMigrar)btnMigrar.style.display=esAdmin?"":"none";
   if(!esAdmin){
     // Ocultar exportar, importar, limpiar historial, caja
     var exportBtn=document.querySelector('[onclick="exportarDatos()"]');
@@ -2507,6 +2510,60 @@ function _guardarListaNom(){
   var items=getNomList();
   fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hotel_nom:items})})
     .then(function(){var m=document.getElementById("saved-msg");if(m){m.textContent="Lista NOM guardada";m.style.color="#5c3ec9";setTimeout(function(){m.textContent="";},2000);}});
+}
+
+function esDescNomGp(desc){
+  var d=(desc||"").trim().toUpperCase();
+  return d.startsWith("CH")||d.startsWith("GP");
+}
+
+function abrirMigracionNom(){
+  if(sesion.rol!=="admin")return;
+  var meses=["2026-06","2026-07"];
+  var candidatos=gastosDetalle.filter(function(g){
+    return g.cat==="NOM" && meses.some(function(m){return (g.fecha||"").startsWith(m);}) && esDescNomGp(g.desc);
+  });
+  var html="<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;'>";
+  html+="<h3 style='margin:0;color:#c00;'>&#9888; Migrar NOM → NOM GP</h3>";
+  html+="<button class='tbtn' onclick='closeOverlay()'>&#10005; Cerrar</button></div>";
+  html+="<div style='background:#fff3cd;border:1px solid #c9a227;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#7a5c00;'>";
+  html+="Se cambiarán <strong>"+candidatos.length+" registros</strong> de categoría NOM a NOM GP (solo junio y julio 2026 con descripción CH* o GP*). Revise la lista antes de confirmar.";
+  html+="</div>";
+  if(!candidatos.length){
+    html+="<div style='color:#aaa;padding:12px;'>No hay registros que cumplan los criterios.</div>";
+  } else {
+    html+="<div style='max-height:360px;overflow-y:auto;border:1px solid #eee;border-radius:6px;margin-bottom:14px;'>";
+    html+="<table style='width:100%;border-collapse:collapse;font-size:13px;'>";
+    html+="<thead><tr style='background:#f0f0f0;'><th style='padding:7px;'>Fecha</th><th style='padding:7px;'>Descripción</th><th style='padding:7px;'>Monto</th><th style='padding:7px;'>Cambio</th></tr></thead><tbody>";
+    candidatos.forEach(function(g){
+      html+="<tr style='border-bottom:1px solid #eee;'>";
+      html+="<td style='padding:7px;color:#888;'>"+g.fecha+"</td>";
+      html+="<td style='padding:7px;'>"+esc(g.desc||"")+"</td>";
+      html+="<td style='padding:7px;text-align:right;'>"+fmt(g.monto)+"</td>";
+      html+="<td style='padding:7px;'><span style='color:#c00;font-weight:bold;'>NOM</span> → <span style='color:#5c3ec9;font-weight:bold;'>NOM GP</span></td>";
+      html+="</tr>";
+    });
+    html+="</tbody></table></div>";
+    html+="<button onclick='confirmarMigracionNom()' style='background:#c00;color:#fff;border:none;border-radius:6px;padding:10px 24px;font-size:14px;font-weight:bold;cursor:pointer;'>&#10003; Confirmar cambio ("+candidatos.length+" registros)</button>";
+    html+=" <button class='tbtn' onclick='closeOverlay()' style='margin-left:8px;'>Cancelar</button>";
+  }
+  showOverlay(html,true);
+}
+
+function confirmarMigracionNom(){
+  if(sesion.rol!=="admin")return;
+  var meses=["2026-06","2026-07"];
+  var count=0;
+  gastosDetalle.forEach(function(g){
+    if(g.cat==="NOM" && meses.some(function(m){return (g.fecha||"").startsWith(m);}) && esDescNomGp(g.desc)){
+      g.cat="NOM GP";
+      count++;
+    }
+  });
+  guardar();
+  closeOverlay();
+  alert("Listo. Se cambiaron "+count+" registros de NOM a NOM GP.");
+  renderGastosTab();
 }
 
 function openUtilidadesNetas(){
