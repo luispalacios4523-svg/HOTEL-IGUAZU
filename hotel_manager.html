@@ -2534,11 +2534,8 @@ function calcUtilidadesNetas(){
   var nombreMes=new Date(+partes[0],+partes[1]-1,1).toLocaleDateString("es-CO",{month:"long",year:"numeric"}).toUpperCase();
 
   // ── TOTAL VENTAS (todas las formas de pago) ──
-  // Habitaciones archivadas: filtrar por fecha de SALIDA (cuando pagaron y se fueron)
-  var habArch=historialesEst.filter(function(e){
-    var fechaRef=e.salida||e.entrada||"";
-    return fechaRef.startsWith(mes);
-  });
+  // Habitaciones archivadas: filtrar por fecha de ENTRADA (pago al check-in)
+  var habArch=historialesEst.filter(function(e){return (e.entrada||"").startsWith(mes);});
   var totalHabArch=habArch.reduce(function(a,e){return a+nm(e.valor);},0);
   // Habitaciones activas actualmente en el hotel (aún no archivadas) con entrada en el mes
   var totalHabAct=0;
