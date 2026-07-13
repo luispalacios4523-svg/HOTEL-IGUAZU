@@ -2545,15 +2545,15 @@ function renderAdminNom(){
   html+="<button class='tbtn' onclick='guardarNuevoNom()' style='background:#5c3ec9;color:#fff;border-color:#5c3ec9;font-weight:bold;padding:8px 18px;'>+ Agregar</button>";
   html+="</div>";
   // Lista actual
-  html+="<div style='font-size:13px;font-weight:bold;color:#555;margin-bottom:8px;'>Miembros actuales:</div>";
+  html+="<div style='font-size:13px;font-weight:bold;color:#555;margin-bottom:8px;'>Turnos guardados ("+items.length+"):</div>";
   if(!items.length){
-    html+="<div style='color:#aaa;padding:12px;'>No hay miembros en la lista.</div>";
+    html+="<div style='color:#aaa;padding:12px;'>No hay turnos en la lista. Agrega uno arriba.</div>";
   } else {
     html+="<div style='display:flex;flex-direction:column;gap:6px;'>";
     items.forEach(function(v,i){
       html+="<div style='display:flex;justify-content:space-between;align-items:center;background:#f9f9f9;border:1px solid #ddd;border-radius:6px;padding:8px 14px;'>";
-      html+="<span style='font-size:14px;'>"+esc(v)+"</span>";
-      html+="<button onclick='eliminarNom("+i+")' style='border:none;background:#fde;color:#c00;border-radius:5px;padding:4px 12px;cursor:pointer;font-size:13px;font-weight:bold;'>&#10005; Eliminar</button>";
+      html+="<span style='font-size:14px;font-weight:bold;'>"+esc(v)+"</span>";
+      html+="<button onclick='eliminarNomIdx("+i+")' style='border:none;background:#fde;color:#c00;border-radius:5px;padding:4px 14px;cursor:pointer;font-size:13px;font-weight:bold;'>&#10005; Eliminar</button>";
       html+="</div>";
     });
     html+="</div>";
@@ -2573,10 +2573,10 @@ function guardarNuevoNom(){
   renderAdminNom();
 }
 
-function eliminarNom(idx){
+function eliminarNomIdx(idx){
   var sel=document.getElementById("g-desc-nom-sel-turno");
   // +1 porque la opción 0 es "-- Seleccionar --"
-  if(idx+1<sel.options.length)sel.remove(idx+1);
+  if(sel&&idx+1<sel.options.length)sel.remove(idx+1);
   _guardarListaNom();
   renderAdminNom();
 }
