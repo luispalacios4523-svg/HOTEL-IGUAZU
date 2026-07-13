@@ -2446,9 +2446,10 @@ function renderProfit(){
 // ── FIN TIENDA ────────────────────────────────────────────────────────────────
 
 function getNomList(){
-  var dl=document.getElementById("lista-nom");
+  var sel=document.getElementById("g-desc-nom-sel-turno");
   var items=[];
-  for(var i=0;i<dl.options.length;i++)items.push(dl.options[i].value);
+  if(!sel)return items;
+  for(var i=1;i<sel.options.length;i++)items.push(sel.options[i].value);
   return items;
 }
 
@@ -2562,26 +2563,28 @@ function renderAdminNom(){
 }
 
 function guardarNuevoNom(){
-  var val=(document.getElementById("nom-nuevo").value||"").trim();
-  if(!val){alert("Escribe un nombre.");return;}
-  var dl=document.getElementById("lista-nom");
-  for(var i=0;i<dl.options.length;i++){if(dl.options[i].value===val){alert("Ya existe ese nombre en la lista.");return;}}
-  var o=document.createElement("option");o.value=val;dl.appendChild(o);
+  var nombre=(document.getElementById("nom-nuevo").value||"").trim();
+  if(!nombre){alert("Escribe un nombre.");return;}
+  var val="Turno "+nombre;
+  var sel=document.getElementById("g-desc-nom-sel-turno");
+  for(var i=0;i<sel.options.length;i++){if(sel.options[i].value===val){alert("Ya existe en la lista.");return;}}
+  var o=document.createElement("option");o.value=val;o.textContent=val;sel.appendChild(o);
   _guardarListaNom();
   renderAdminNom();
 }
 
 function eliminarNom(idx){
-  var dl=document.getElementById("lista-nom");
-  if(idx>=0&&idx<dl.options.length)dl.remove(idx);
+  var sel=document.getElementById("g-desc-nom-sel-turno");
+  // +1 porque la opción 0 es "-- Seleccionar --"
+  if(idx+1<sel.options.length)sel.remove(idx+1);
   _guardarListaNom();
   renderAdminNom();
 }
 
 function _guardarListaNom(){
   var items=getNomList();
-  fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hotel_nom:items})})
-    .then(function(){var m=document.getElementById("saved-msg");if(m){m.textContent="Lista NOM guardada";m.style.color="#5c3ec9";setTimeout(function(){m.textContent="";},2000);}});
+  fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hotel_nom_turnos:items})})
+    .then(function(){var m=document.getElementById("saved-msg");if(m){m.textContent="Lista Turno guardada";m.style.color="#5c3ec9";setTimeout(function(){m.textContent="";},2000);}});
 }
 
 function esDescNomGp(desc){
