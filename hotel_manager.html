@@ -851,9 +851,9 @@ function debeOcultarse(h){
 function renderTable(){
   _renderizando=true;
   var tb=document.getElementById("tbody");var html="";
-  // Auto-archivar huéspedes vencidos
+  // Auto-archivar huéspedes vencidos (no en modo ayer)
   var cambio=false;
-  HABS.forEach(function(h){
+  if(!modoAyer)HABS.forEach(function(h){
     if(!debeOcultarse(h))return;
     var r=reg[h];
     var p0=r.pasajeros&&r.pasajeros[0]?r.pasajeros[0]:{};
