@@ -669,7 +669,8 @@ function openHistorial(){
   html+="<div style='background:#f9f9f9;border:1px solid #ddd;border-radius:8px;padding:12px;margin-bottom:12px;'>";
   html+="<div style='display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;'>";
   html+="<label style='font-size:13px;font-weight:bold;color:#1a4a80;'>Busqueda rapida:</label>";
-  html+="<input type='text' id='hf-rapida' placeholder='2/2025 | 15/04/2026 | 2025 | enero 2025 | HERNANDEZ' style='padding:8px 12px;border:2px solid #1a6bb5;border-radius:6px;font-size:14px;width:320px;' onkeydown='if(event.key===\"Enter\")busquedaRapidaH()'>";
+  html+="<input type='text' id='hf-rapida' placeholder='2/2025 | 15/04/2026 | 2025 | enero 2025 | HERNANDEZ' style='padding:8px 12px;border:2px solid #1a6bb5;border-radius:6px;font-size:14px;width:280px;' onkeydown='if(event.key===\"Enter\")busquedaRapidaH()'>";
+  html+="<input type='date' id='hf-cal' title='Seleccionar fecha' style='padding:7px 8px;border:2px solid #1a6bb5;border-radius:6px;font-size:14px;cursor:pointer;' onchange='var v=this.value;if(v){var p=v.split(\"-\");document.getElementById(\"hf-rapida\").value=p[2]+\"/\"+p[1]+\"/\"+p[0];busquedaRapidaH();}'>";
   html+="<button class='tbtn tbtn-blue' onclick='busquedaRapidaH()' style='padding:8px 16px;font-weight:bold;'>Buscar</button>";
   html+="</div>";
   html+="<div style='font-size:11px;color:#888;margin-bottom:10px;'>Ejemplos: <b>2/2025</b> (feb 2025) | <b>15/04/2026</b> (dia exacto) | <b>2025</b> (todo el ano) | <b>enero 2025</b> | nombre o cedula</div>";
