@@ -873,26 +873,31 @@ function renderTable(){
     html+="<tr class='piso-row'><td colspan='9'>PISO "+piso+"</td></tr>";
     PISOS[piso].forEach(function(h){
       var r=reg[h];var nombre=nc(h);var ok=nombre.trim()!=="";
-      html+="<tr class='main-row"+(ok?" ocupada":"")+"' id='mr"+h+"'>";
+      // En modo hoy: si el huésped de ayer ya debió salir, mostrar la hab como vacía visualmente
+      var fHoyStr=new Date().toLocaleDateString('en-CA');
+      var expirada=!modoAyer&&r.fechaEntrada&&r.fechaEntrada<fHoyStr&&calcSalida(r.fechaEntrada,parseInt(r.nochesTotal)||1)<=fHoyStr;
+      var rVis=expirada?{fechaEntrada:"",valor:"",canal:"",pago:"",nochesTotal:1}:r;
+      var nombreVis=expirada?"":nombre;var okVis=!expirada&&ok;
+      html+="<tr class='main-row"+(okVis?" ocupada":"")+"' id='mr"+h+"'>";
       html+="<td><button class='hbtn' onclick='toggleD("+h+")'>"+h+"</button></td>";
-      html+="<td><span class='dot "+(ok?"ok":"r")+"' id='dot"+h+"'>"+(ok?"&#10003;":"R")+"</span></td>";
+      html+="<td><span class='dot "+(okVis?"ok":"r")+"' id='dot"+h+"'>"+(okVis?"&#10003;":"R")+"</span></td>";
       // FECHA - siempre visible y editable
       var fechaHoy=getFechaDefault();
-      html+="<td><input type='date' class='ci' value='"+(r.fechaEntrada||fechaHoy)+"' onchange='updFechaEntrada("+h+",this.value)' style='font-size:11px;width:105px;"+(modoAyer&&!r.fechaEntrada?"background:#fff3cd;":"")+"'></td>";
+      html+="<td><input type='date' class='ci' value='"+(rVis.fechaEntrada||fechaHoy)+"' onchange='updFechaEntrada("+h+",this.value)' style='font-size:11px;width:105px;"+(modoAyer&&!r.fechaEntrada?"background:#fff3cd;":"")+"'></td>";
       // NOMBRE
-      html+="<td id='nc"+h+"'><span style='padding:4px 6px;font-size:14px'>"+(ok?esc(nombre):"<span style='color:#aaa'>Nombre cliente</span>")+"</span></td>";
+      html+="<td id='nc"+h+"'><span style='padding:4px 6px;font-size:14px'>"+(okVis?esc(nombreVis):"<span style='color:#aaa'>Nombre cliente</span>")+"</span></td>";
       // VALOR
-      html+="<td style='text-align:right'><input class='ci val' type='number' value='"+esc(r.valor)+"' placeholder='0' style='width:110px;text-align:right' oninput='updHab("+h+",\"valor\",this.value)' onblur='validarPago("+h+",this)'></td>";
+      html+="<td style='text-align:right'><input class='ci val' type='number' value='"+esc(rVis.valor)+"' placeholder='0' style='width:110px;text-align:right' oninput='updHab("+h+",\"valor\",this.value)' onblur='validarPago("+h+",this)'></td>";
       // CANAL
-      html+="<td><select class='ci' onchange='updHab("+h+",\"canal\",this.value)' style='width:100px'>"+canalOpts(r.canal)+"</select></td>";
+      html+="<td><select class='ci' onchange='updHab("+h+",\"canal\",this.value)' style='width:100px'>"+canalOpts(rVis.canal)+"</select></td>";
       // NOCHES
-      html+="<td style='text-align:center;'>"+(ok?"<input class='ci' type='number' min='1' value='"+(r.nochesTotal||1)+"' style='width:42px;text-align:center;font-weight:bold;color:#1a4a80;' oninput='updHab("+h+",\"nochesTotal\",this.value);actualizarSalida("+h+")'>":"&mdash;")+"</td>";
+      html+="<td style='text-align:center;'>"+(okVis?"<input class='ci' type='number' min='1' value='"+(rVis.nochesTotal||1)+"' style='width:42px;text-align:center;font-weight:bold;color:#1a4a80;' oninput='updHab("+h+",\"nochesTotal\",this.value);actualizarSalida("+h+")'>":"&mdash;")+"</td>";
       // FORMA DE PAGO
-      html+="<td><select class='ci' onchange='updHab("+h+",\"pago\",this.value)' style='width:110px'>"+pagoOpts(r.pago)+"</select></td>";
+      html+="<td><select class='ci' onchange='updHab("+h+",\"pago\",this.value)' style='width:110px'>"+pagoOpts(rVis.pago)+"</select></td>";
       // Botón 👁 pasajero
       html+="<td><button onclick='toggleD("+h+")' title='Ver pasajero' style='border:none;background:none;cursor:pointer;font-size:16px;padding:2px 4px;'>&#128065;</button></td>";
-      // Botón archivar (solo si hay nombre o valor)
-      html+="<td>"+(ok||nm(r.valor)>0?"<button onclick='archivarHab("+h+")' title='Archivar' style='border:none;background:none;cursor:pointer;font-size:14px;padding:2px 4px;color:#1a6bb5;'>&#128228;</button>":"")+"</td>";
+      // Botón archivar (solo si hay nombre o valor y no está expirada en vista hoy)
+      html+="<td>"+(!expirada&&(ok||nm(r.valor)>0)?"<button onclick='archivarHab("+h+")' title='Archivar' style='border:none;background:none;cursor:pointer;font-size:14px;padding:2px 4px;color:#1a6bb5;'>&#128228;</button>":"")+"</td>";
       // Botón ✕ limpiar
       html+="<td>"+(sesion.rol==="admin"?"<button onclick='limpiar("+h+")' style='border:none;background:none;cursor:pointer;color:#c00;font-size:14px'>&#10005;</button>":"")+"</td>";
       html+="</tr>";
