@@ -538,7 +538,7 @@ function aplicarPermisos(){
   }
 }
 
-var reg={},gastos=[],gastosDetalle=[],productos=[],carrito=[],historialVentas=[],historialesEst=[],saldoInicial={},chipsAseo=[],abierta=null,_listaHist=[],_sugerencias=[],ajustes={efectivo:0,digital:0};
+var reg={},gastos=[],gastosDetalle=[],productos=[],carrito=[],historialVentas=[],historialesEst=[],saldoInicial={},chipsAseo=[],abierta=null,_listaHist=[],_sugerencias=[],ajustes={efectivo:0,digital:0},_renderizando=false;
 var comprasTienda=[];
 
 function initHab(h){return{nombre:"",canal:"",valor:"",pago:"",fechaEntrada:"",nochesTotal:1,ultimoPago:"",pasajeros:[{doc:"",apellidos:"",nombre:"",sexo:"",fnac:"",rh:"",tel:""}]};}
@@ -849,6 +849,7 @@ function debeOcultarse(h){
 }
 
 function renderTable(){
+  _renderizando=true;
   var tb=document.getElementById("tbody");var html="";
   // Auto-archivar huéspedes vencidos
   var cambio=false;
@@ -903,7 +904,7 @@ function renderTable(){
       html+="</tr>";
     });
   });
-  tb.innerHTML=html;calcTotales();
+  tb.innerHTML=html;_renderizando=false;calcTotales();
 }
 
 function renderPasCard(h,i,p,total){
@@ -1007,7 +1008,27 @@ function reintegrarEnHab(h,idx){
   },100);
 }
 
-function toggleD(h){openModalPasajero(h);}
+function limpiarSiExpirada(h){
+  if(_renderizando||modoAyer)return;
+  var r=reg[h];
+  if(!r.fechaEntrada)return;
+  var fHoy=new Date().toLocaleDateString('en-CA');
+  if(r.fechaEntrada>=fHoy)return;
+  if(calcSalida(r.fechaEntrada,parseInt(r.nochesTotal)||1)>fHoy)return;
+  var p0=r.pasajeros&&r.pasajeros[0]?r.pasajeros[0]:{};
+  var hues=[p0.apellidos,p0.nombre].filter(function(x){return x&&x.trim();}).join(" ")||r.nombre||"";
+  var noches=parseInt(r.nochesTotal)||1;
+  var sal=calcSalida(r.fechaEntrada,noches);
+  var yaExiste=historialesEst.some(function(e){return e.hab===h&&e.entrada===r.fechaEntrada&&e.huesped===(hues.trim()||"Sin nombre");});
+  if(!yaExiste&&(hues.trim()||nm(r.valor)>0)){
+    historialesEst.push({hab:h,huesped:hues||"Sin nombre",entrada:r.fechaEntrada,salida:sal,
+      noches:noches,valor:nm(r.valor),pago:r.pago||"",canal:r.canal||"",
+      pasajeros:(r.pasajeros||[]).map(function(p){return Object.assign({},p);})});
+  }
+  reg[h]=initHab(h);
+}
+
+function toggleD(h){limpiarSiExpirada(h);openModalPasajero(h);}
 
 function openModalPasajero(h){
   var r=reg[h];
@@ -1259,6 +1280,7 @@ function preguntarFechaEntrada(h){
 }
 
 function updHab(h,f,v){
+  limpiarSiExpirada(h);
   reg[h][f]=v;
 
   // Si se selecciona forma de pago sin valor, alertar
@@ -1320,7 +1342,7 @@ function desactivarBloqueo(){
   _habBloqueada=null;
   document.querySelectorAll("select.ci").forEach(function(s){s.style.cssText="";});
 }
-function updFechaEntrada(h,v){reg[h].fechaEntrada=v;actualizarSalida(h);guardar();renderTable();}
+function updFechaEntrada(h,v){limpiarSiExpirada(h);reg[h].fechaEntrada=v;actualizarSalida(h);guardar();renderTable();}
 function updPas(h,i,f,v){
   if(!reg[h].pasajeros[i])return;
   var estabaVacia=!nc(h).trim();
