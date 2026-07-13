@@ -117,7 +117,7 @@ td{padding:4px 6px;vertical-align:middle;}
   <button class="tbtn" onclick="openModal('buscar')">BUSCAR</button>
   <button class="tbtn tbtn-green" onclick="openResumen()">Resumen del mes</button>
   <button class="tbtn" onclick="openInforme()">Informe Ventas</button>
-  <button class="tbtn" onclick="openUtilidadesNetas()" style="background:#1a6bb5;color:#fff;border-color:#1a6bb5;font-weight:bold;">&#128202; Utilidades Netas</button>
+  <button id="btn-utilidades-netas" class="tbtn" onclick="openUtilidadesNetas()" style="background:#1a6bb5;color:#fff;border-color:#1a6bb5;font-weight:bold;display:none;">&#128202; Utilidades Netas</button>
   <button class="tbtn tbtn-purple" onclick="openHistorial()">&#128203; Historial</button>
   <button id="btn-desarch" onclick="desarchivarAyer()" style="margin-left:auto;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:bold;border:2px solid #1a6bb5;background:#e3f0ff;color:#1a3a6b;">&#128196; Cargar ayer</button>
 </div>
@@ -522,6 +522,8 @@ function aplicarPermisos(){
   // Ocultar elementos según rol
   var btnAdminNom=document.getElementById("btn-admin-nom");
   if(btnAdminNom)btnAdminNom.style.display=esAdmin?"":"none";
+  var btnUtil=document.getElementById("btn-utilidades-netas");
+  if(btnUtil)btnUtil.style.display=esAdmin?"":"none";
   var btnMigrar=document.getElementById("btn-migrar-nom");
   if(btnMigrar)btnMigrar.style.display=esAdmin?"":"none";
   if(!esAdmin){
