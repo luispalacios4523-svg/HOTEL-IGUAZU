@@ -852,8 +852,12 @@ function renderTable(){
   var tb=document.getElementById("tbody");var html="";
   // Auto-archivar huéspedes vencidos
   var cambio=false;
+  var fHoyArchivo=new Date().toLocaleDateString('en-CA');
   HABS.forEach(function(h){
-    if(!debeOcultarse(h))return;
+    // En modo hoy: archivar expiradas sin importar la hora
+    var r0=reg[h];
+    var esExpiradaAhora=!modoAyer&&r0.fechaEntrada&&r0.fechaEntrada<fHoyArchivo&&calcSalida(r0.fechaEntrada,parseInt(r0.nochesTotal)||1)<=fHoyArchivo;
+    if(!debeOcultarse(h)&&!esExpiradaAhora)return;
     var r=reg[h];
     var p0=r.pasajeros&&r.pasajeros[0]?r.pasajeros[0]:{};
     var hues=[p0.apellidos,p0.nombre].filter(function(x){return x&&x.trim();}).join(" ")||r.nombre||"";
