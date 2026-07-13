@@ -1379,7 +1379,13 @@ function limpiar(h){if(!confirm("Limpiar habitacion "+h+"?"))return;reg[h]=initH
 
 function calcTotales(){
   var tots={};PAGOS.slice(1).forEach(function(p){tots[p]=0;});var totalHab=0;
-  HABS.forEach(function(h){var v=nm(reg[h].valor);totalHab+=v;if(reg[h].pago&&tots[reg[h].pago]!==undefined)tots[reg[h].pago]+=v;});
+  var fHoyStr2=new Date().toLocaleDateString('en-CA');
+  HABS.forEach(function(h){
+    var r=reg[h];
+    // En modo hoy, excluir habitaciones con estadía expirada del total
+    if(!modoAyer&&r.fechaEntrada&&r.fechaEntrada<fHoyStr2&&calcSalida(r.fechaEntrada,parseInt(r.nochesTotal)||1)<=fHoyStr2)return;
+    var v=nm(r.valor);totalHab+=v;if(r.pago&&tots[r.pago]!==undefined)tots[r.pago]+=v;
+  });
   var gast=gastos.reduce(function(a,g){return a+g.monto;},0);
   var totalT=historialVentas.reduce(function(a,v){return a+v.total;},0);
   document.getElementById("ft-g").textContent=fmt(gast);
