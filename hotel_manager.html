@@ -2079,6 +2079,22 @@ function desarchivarAyer(){
     var ayerFmt=d.toLocaleDateString("es-CO",{weekday:"long",day:"numeric",month:"long"});
     if(btn){btn.style.background="#f5a623";btn.style.borderColor="#d4881a";btn.style.color="#fff";btn.textContent="📅 Ver hoy";}
     if(banner){banner.style.display="flex";banner.querySelector("span").textContent="MODO AYER — Ingresando pasajeros del "+ayerFmt+". Las fechas se ponen automáticamente en ese día.";}
+    // Recuperar huéspedes de ayer que ya fueron archivados al mediodía
+    var recuperados=0;
+    historialesEst.filter(function(e){return (e.entrada||"")===fAyer;}).forEach(function(e){
+      var h=e.hab;
+      if(!HABS.includes(h))return;
+      // Solo recuperar si reg[h] está vacío (sin nombre y sin valor)
+      if(nc(h).trim()||nm(reg[h].valor)>0)return;
+      reg[h].fechaEntrada=e.entrada;
+      reg[h].nochesTotal=e.noches||1;
+      reg[h].valor=String(e.valor||"");
+      reg[h].pago=e.pago||"";
+      reg[h].canal=e.canal||"";
+      reg[h].pasajeros=e.pasajeros&&e.pasajeros.length?e.pasajeros.map(function(p){return Object.assign({},p);}):[{doc:"",apellidos:"",nombre:"",sexo:"",fnac:"",rh:"",tel:""}];
+      recuperados++;
+    });
+    if(recuperados>0)guardar();
   } else {
     if(btn){btn.style.background="#e3f0ff";btn.style.borderColor="#1a6bb5";btn.style.color="#1a3a6b";btn.innerHTML="&#128196; Cargar ayer";}
     if(banner){banner.style.display="none";}
