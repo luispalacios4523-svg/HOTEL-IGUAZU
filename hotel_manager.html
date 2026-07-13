@@ -873,14 +873,6 @@ function renderTable(){
     html+="<tr class='piso-row'><td colspan='9'>PISO "+piso+"</td></tr>";
     PISOS[piso].forEach(function(h){
       var r=reg[h];var nombre=nc(h);var ok=nombre.trim()!=="";
-      // En modo hoy: ocultar filas con fecha de ayer o anterior cuya salida ya pasó
-      if(!modoAyer&&r.fechaEntrada){
-        var fHoyStr=new Date().toLocaleDateString('en-CA');
-        if(r.fechaEntrada<fHoyStr){
-          var sal=calcSalida(r.fechaEntrada,parseInt(r.nochesTotal)||1);
-          if(sal<=fHoyStr)return; // salida ya pasó → no mostrar en vista hoy
-        }
-      }
       html+="<tr class='main-row"+(ok?" ocupada":"")+"' id='mr"+h+"'>";
       html+="<td><button class='hbtn' onclick='toggleD("+h+")'>"+h+"</button></td>";
       html+="<td><span class='dot "+(ok?"ok":"r")+"' id='dot"+h+"'>"+(ok?"&#10003;":"R")+"</span></td>";
