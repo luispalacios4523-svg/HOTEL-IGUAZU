@@ -1028,7 +1028,7 @@ function limpiarSiExpirada(h){
   reg[h]=initHab(h);
 }
 
-function toggleD(h){limpiarSiExpirada(h);openModalPasajero(h);}
+function toggleD(h){openModalPasajero(h);}
 
 function openModalPasajero(h){
   var r=reg[h];
@@ -1280,7 +1280,8 @@ function preguntarFechaEntrada(h){
 }
 
 function updHab(h,f,v){
-  limpiarSiExpirada(h);
+  // Solo limpiar si el usuario está ingresando un valor real (no durante renderizado)
+  if(f==="valor"&&nm(v)>0)limpiarSiExpirada(h);
   reg[h][f]=v;
 
   // Si se selecciona forma de pago sin valor, alertar
@@ -1342,7 +1343,7 @@ function desactivarBloqueo(){
   _habBloqueada=null;
   document.querySelectorAll("select.ci").forEach(function(s){s.style.cssText="";});
 }
-function updFechaEntrada(h,v){limpiarSiExpirada(h);reg[h].fechaEntrada=v;actualizarSalida(h);guardar();renderTable();}
+function updFechaEntrada(h,v){reg[h].fechaEntrada=v;actualizarSalida(h);guardar();renderTable();}
 function updPas(h,i,f,v){
   if(!reg[h].pasajeros[i])return;
   var estabaVacia=!nc(h).trim();
