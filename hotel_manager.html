@@ -323,9 +323,12 @@ td{padding:4px 6px;vertical-align:middle;}
         </select>
         <!-- NOM: select desplegable Turno* + agregar nuevo -->
         <div id="g-desc-nom-wrap" style="display:none;">
-          <select id="g-desc-nom-sel-turno" style="width:240px;padding:7px 9px;border:1px solid #ccc;border-radius:6px;font-size:14px;">
-            <option value="">-- Seleccionar --</option>
-          </select>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <select id="g-desc-nom-sel-turno" style="width:220px;padding:7px 9px;border:1px solid #ccc;border-radius:6px;font-size:14px;">
+              <option value="">-- Seleccionar --</option>
+            </select>
+            <button onclick="eliminarTurnoSeleccionado()" title="Eliminar este turno de la lista" style="border:none;background:#fde;color:#c00;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:16px;font-weight:bold;line-height:1;">&#10005;</button>
+          </div>
           <div style="display:flex;gap:6px;margin-top:6px;align-items:center;">
             <span style="padding:7px 10px;background:#f0f0f0;border:1px solid #ccc;border-radius:6px 0 0 6px;font-size:14px;color:#555;white-space:nowrap;border-right:none;">Turno</span>
             <input type="text" id="g-desc-nom-nombre" placeholder="mary, ovidio vacaciones..." style="flex:1;padding:7px 9px;border:1px solid #ccc;border-radius:0 6px 6px 0;font-size:14px;min-width:100px;"/>
@@ -1599,6 +1602,16 @@ function agregarTurnoNom(){
   var items=[];for(var j=1;j<sel.options.length;j++)items.push(sel.options[j].value);
   fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hotel_nom_turnos:items})})
     .then(function(){var m=document.getElementById("saved-msg");if(m){m.textContent='"'+val+'" guardado';m.style.color="#2d6a3f";setTimeout(function(){m.textContent="";},2500);}});
+}
+
+function eliminarTurnoSeleccionado(){
+  var sel=document.getElementById("g-desc-nom-sel-turno");
+  if(!sel||!sel.value){alert("Primero selecciona un turno de la lista.");return;}
+  if(!confirm("¿Eliminar '"+sel.value+"' de la lista?"))return;
+  for(var i=0;i<sel.options.length;i++){if(sel.options[i].value===sel.value){sel.remove(i);break;}}
+  sel.value="";
+  var items=[];for(var j=1;j<sel.options.length;j++)items.push(sel.options[j].value);
+  fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hotel_nom_turnos:items})});
 }
 
 function agregarTurnoOpcion(val){
