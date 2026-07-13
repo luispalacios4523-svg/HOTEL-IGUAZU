@@ -1387,7 +1387,8 @@ function calcTotales(){
     var v=nm(r.valor);totalHab+=v;if(r.pago&&tots[r.pago]!==undefined)tots[r.pago]+=v;
   });
   var gast=gastos.reduce(function(a,g){return a+g.monto;},0);
-  var totalT=historialVentas.reduce(function(a,v){return a+v.total;},0);
+  var fechaDia=getFechaDefault();
+  var totalT=historialVentas.filter(function(v){return (v.fecha||"").startsWith(fechaDia);}).reduce(function(a,v){return a+v.total;},0);
   document.getElementById("ft-g").textContent=fmt(gast);
   document.getElementById("ft-c").textContent=fmt(totalHab-gast);
   PAGOS.slice(1).forEach(function(p){var el=document.getElementById("ft-"+p);if(el)el.textContent=fmt(tots[p]);});
