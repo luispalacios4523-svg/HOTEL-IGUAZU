@@ -124,6 +124,9 @@ td{padding:4px 6px;vertical-align:middle;}
 <div style="padding:5px 14px;font-size:12px;color:#1a4a80;background:#e3f0ff;border-bottom:1px solid #b8d4f0;">
   Clic en el n&#250;mero de habitaci&#243;n &#8594; escanea la c&#233;dula
 </div>
+<div id="banner-modo-ayer" style="display:none;align-items:center;gap:10px;background:#f5a623;color:#fff;padding:8px 16px;font-size:13px;font-weight:bold;">
+  ⚠️ <span></span>
+</div>
 <div class="table-wrap">
 <table>
 <thead><tr>
@@ -437,6 +440,9 @@ td{padding:4px 6px;vertical-align:middle;}
 <script>
 var PISOS={2:[201,202,203,204,205,206,207,208,209,210],3:[301,302,303,304,305,306,307,308],4:[401,402,403,404,405,406]};
 var HABS=[];Object.values(PISOS).forEach(function(a){a.forEach(function(h){HABS.push(h);});});
+var modoAyer=false;
+function getFechaDefault(){var d=new Date();if(modoAyer)d.setDate(d.getDate()-1);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function getFechaAyer(){var d=new Date();d.setDate(d.getDate()-1);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
 var CANALES=["","Hotel","Booking","Ayenda","Liquidos","Vitrina"];
 var PAGOS=["","Efectivo","Nequi","Bancolombia","Bold","Ayenda","Daviplata"];
 var CAJAS_LIST=["Efectivo","Nequi","Bancolombia","Bold","Daviplata"];
@@ -811,10 +817,9 @@ function reintegrarDesdeHistorial(idx){
   reg[dest].pasajeros=e.pasajeros?e.pasajeros.slice():[{doc:"",apellidos:"",nombre:e.huesped,sexo:"",fnac:"",rh:"",tel:""}];
   reg[dest].nombre=reg[dest].pasajeros[0].nombre||reg[dest].pasajeros[0].apellidos||e.huesped;
   reg[dest].canal="";
-  // Usar la fecha seleccionada en el modal (si existe), si no poner hoy
+  // Usar la fecha seleccionada en el modal (si existe), si no usar fecha según modo
   var fechaModal=reg[dest].fechaEntrada;
-  var hoyLocal=new Date();var fHoy=hoyLocal.getFullYear()+"-"+String(hoyLocal.getMonth()+1).padStart(2,"0")+"-"+String(hoyLocal.getDate()).padStart(2,"0");
-  reg[dest].fechaEntrada=fechaModal||fHoy;
+  reg[dest].fechaEntrada=fechaModal||getFechaDefault();
   // Actualizar input de fecha en la fila
   var mr=document.getElementById("mr"+dest);
   if(mr){var fi=mr.querySelector("input[type='date']");if(fi)fi.value=reg[dest].fechaEntrada;}
@@ -872,8 +877,8 @@ function renderTable(){
       html+="<td><button class='hbtn' onclick='toggleD("+h+")'>"+h+"</button></td>";
       html+="<td><span class='dot "+(ok?"ok":"r")+"' id='dot"+h+"'>"+(ok?"&#10003;":"R")+"</span></td>";
       // FECHA - siempre visible y editable
-      var fechaHoy=new Date().toLocaleDateString('en-CA');
-      html+="<td><input type='date' class='ci' value='"+(r.fechaEntrada||fechaHoy)+"' onchange='updFechaEntrada("+h+",this.value)' style='font-size:11px;width:105px;'></td>";
+      var fechaHoy=getFechaDefault();
+      html+="<td><input type='date' class='ci' value='"+(r.fechaEntrada||fechaHoy)+"' onchange='updFechaEntrada("+h+",this.value)' style='font-size:11px;width:105px;"+(modoAyer&&!r.fechaEntrada?"background:#fff3cd;":"")+"'></td>";
       // NOMBRE
       html+="<td id='nc"+h+"'><span style='padding:4px 6px;font-size:14px'>"+(ok?esc(nombre):"<span style='color:#aaa'>Nombre cliente</span>")+"</span></td>";
       // VALOR
@@ -2030,60 +2035,20 @@ window.addEventListener('beforeunload', function(){
 
 // ── CARGAR AYER ─────────────────────────────────────────────────────────────
 function desarchivarAyer(){
-  // Calcular fecha de ayer en hora local
-  var d=new Date();
-  var ayer=new Date(d.getFullYear(),d.getMonth(),d.getDate()-1);
-  var fAyer=ayer.getFullYear()+"-"+String(ayer.getMonth()+1).padStart(2,"0")+"-"+String(ayer.getDate()).padStart(2,"0");
-  var ayerFmt=ayer.toLocaleDateString("es-CO",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
-
-  // Buscar registros del historial con entrada = ayer
-  var deAyer=historialesEst.filter(function(e){return (e.entrada||"")=== fAyer;});
-
-  if(deAyer.length===0){
-    alert("No hay registros del "+ayerFmt+" en el historial.");
-    return;
+  modoAyer=!modoAyer;
+  var btn=document.getElementById("btn-desarch");
+  var banner=document.getElementById("banner-modo-ayer");
+  if(modoAyer){
+    var fAyer=getFechaAyer();
+    var d=new Date(fAyer+"T12:00:00");
+    var ayerFmt=d.toLocaleDateString("es-CO",{weekday:"long",day:"numeric",month:"long"});
+    if(btn){btn.style.background="#f5a623";btn.style.borderColor="#d4881a";btn.style.color="#fff";btn.textContent="📅 Ver hoy";}
+    if(banner){banner.style.display="flex";banner.querySelector("span").textContent="MODO AYER — Ingresando pasajeros del "+ayerFmt+". Las fechas se ponen automáticamente en ese día.";}
+  } else {
+    if(btn){btn.style.background="#e3f0ff";btn.style.borderColor="#1a6bb5";btn.style.color="#1a3a6b";btn.innerHTML="&#128196; Cargar ayer";}
+    if(banner){banner.style.display="none";}
   }
-
-  if(!confirm("Cargar "+deAyer.length+" habitación(es) del "+ayerFmt+" en VENTAS?"))return;
-  var fechaEntradaFinal = fAyer;
-
-  // Mover cada registro de ayer de historialesEst → reg[]
-  var cargadas=0;
-  deAyer.forEach(function(e){
-    var h=e.hab;
-    if(HABS.indexOf(h)<0) return;
-    // Solo cargar si la habitación está vacía actualmente
-    var nombreActual=nc(h);
-    if(nombreActual.trim()||nm(reg[h].valor)>0){
-      // Ya tiene alguien hoy — no pisar
-      return;
-    }
-    // Pasar a reg[]
-    reg[h].fechaEntrada=fechaEntradaFinal;
-    reg[h].nochesTotal=e.noches||1;
-    reg[h].valor=String(e.valor||"");
-    reg[h].pago=e.pago||"";
-    reg[h].canal="";
-    reg[h].pasajeros=e.pasajeros&&e.pasajeros.length
-      ? e.pasajeros.map(function(p){return Object.assign({},p);})
-      : [{doc:"",apellidos:"",nombre:"",sexo:"",fnac:"",rh:"",tel:""}];
-    reg[h].nombre="";
-    // Quitar del historial
-    var idx=historialesEst.indexOf(e);
-    if(idx>=0) historialesEst.splice(idx,1);
-    cargadas++;
-  });
-
-  if(cargadas===0){
-    alert("No se pudo cargar ninguna: las habitaciones ya tienen huéspedes de hoy.");
-    return;
-  }
-
-  guardar();
   renderTable();
-  var msg=document.getElementById("saved-msg");
-  if(msg){msg.textContent="&#10003; "+cargadas+" habitación(es) del "+ayerFmt+" cargadas en VENTAS";msg.style.color="#1a3a6b";}
-  alert("✓ "+cargadas+" habitación(es) cargadas en VENTAS.\nArhcívalas manualmente cuando termines.");
 }
 // ── FIN CARGAR AYER ──────────────────────────────────────────────────────────
 
