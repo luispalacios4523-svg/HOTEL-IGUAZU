@@ -500,7 +500,7 @@ function doLogin(){
   sesion.usuario=u;sesion.rol=USUARIOS[u].rol;sesion.nombre=USUARIOS[u].nombre;
   document.getElementById("login-overlay").style.display="none";
   aplicarPermisos();
-  cargar().then(function(){renderTable();verificarBackup();});
+  cargarConReintentos(3);
   setInterval(function(){
     var urls=['/api/efectivo','https://bicicletas-electricas.onrender.com/api/efectivo','https://clientes-online.onrender.com/api/efectivo'];
     Promise.all(urls.map(function(u){return fetch(u).then(function(r){return r.json();}).catch(function(){return {efectivo:0};});}))
@@ -587,6 +587,22 @@ function cargar(){
     }catch(e){console.error("Error cargando:",e);}
     _datosListos=true;
   }).catch(function(e){console.error("Error cargando:",e);_datosListos=true;});
+}
+
+function cargarConReintentos(intentosRestantes){
+  cargar().then(function(){
+    var totalReg=gastosDetalle.length+historialesEst.length;
+    if(totalReg<500&&intentosRestantes>1){
+      console.warn("Datos incompletos ("+totalReg+" registros), reintentando...");
+      setTimeout(function(){cargarConReintentos(intentosRestantes-1);},2500);
+    } else {
+      if(totalReg<500){
+        var av=document.getElementById("saved-msg");
+        if(av){av.textContent="⚠️ Error cargando datos — intente de nuevo";av.style.color="#c00";}
+      }
+      renderTable();verificarBackup();
+    }
+  });
 }
 
 function verificarBackup(){
