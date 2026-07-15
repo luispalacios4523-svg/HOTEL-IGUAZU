@@ -1297,9 +1297,9 @@ function preguntarFechaEntrada(h){
 }
 
 function updHab(h,f,v){
-  // Solo limpiar si el usuario está ingresando un valor real (no durante renderizado)
-  if(f==="valor"&&nm(v)>0)limpiarSiExpirada(h);
   reg[h][f]=v;
+  // Archivar despues de actualizar el valor para que quede el monto correcto
+  if(f==="valor"&&nm(v)>0)limpiarSiExpirada(h);
 
   // Si se selecciona forma de pago sin valor, alertar
   if(f==="pago"&&v&&!(nm(reg[h].valor)>0)){
