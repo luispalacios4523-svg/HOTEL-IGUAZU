@@ -2117,6 +2117,31 @@ function desarchivarAyer(){
   } else {
     if(btn){btn.style.background="#e3f0ff";btn.style.borderColor="#1a6bb5";btn.style.color="#1a3a6b";btn.innerHTML="&#128196; Cargar ayer";}
     if(banner){banner.style.display="none";}
+    // Al volver a "Ver hoy", archivar inmediatamente habitaciones con fecha pasada
+    // sin esperar el mediodia, para evitar que se pierdan datos de "Cargar ayer"
+    var fHoy=new Date().toLocaleDateString('en-CA');
+    var cambioSalida=false;
+    HABS.forEach(function(h){
+      var r=reg[h];
+      if(!r.fechaEntrada)return;
+      var noches=parseInt(r.nochesTotal)||1;
+      var salida=calcSalida(r.fechaEntrada,noches);
+      if(salida>fHoy)return; // no ha vencido aun
+      var nombre=nc(h).trim();
+      var valor=nm(r.valor);
+      if(!nombre&&!valor)return; // habitacion vacia
+      var p0=r.pasajeros&&r.pasajeros[0]?r.pasajeros[0]:{};
+      var hues=[p0.apellidos,p0.nombre].filter(function(x){return x&&x.trim();}).join(" ")||r.nombre||"";
+      var yaExiste=historialesEst.some(function(e){return e.hab===h&&e.entrada===r.fechaEntrada&&e.huesped===(hues.trim()||"Sin nombre");});
+      if(!yaExiste&&(hues.trim()||valor>0)){
+        historialesEst.push({hab:h,huesped:hues||"Sin nombre",entrada:r.fechaEntrada,salida:salida,
+          noches:noches,valor:valor,pago:r.pago||"",canal:r.canal||"",
+          pasajeros:(r.pasajeros||[]).map(function(p){return Object.assign({},p);})});
+      }
+      reg[h]=initHab(h);
+      cambioSalida=true;
+    });
+    if(cambioSalida)guardar();
   }
   renderTable();
 }
