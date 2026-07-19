@@ -1049,11 +1049,11 @@ function _pushHistorial(h,r,hues,salida,noches){
         noches:noches,valor:val,pago:r.pago||"",canal:r.canal||"",
         pasajeros:(r.pasajeros||[]).map(function(p){return Object.assign({},p);})});
     }
-  } else if(val>0&&historialesEst[idx].valor===0){
-    historialesEst[idx].valor=val;
+  } else {
+    if(val>0)historialesEst[idx].valor=val;
     historialesEst[idx].huesped=hues||historialesEst[idx].huesped;
-    historialesEst[idx].pago=r.pago||historialesEst[idx].pago;
-    historialesEst[idx].canal=r.canal||historialesEst[idx].canal;
+    if(r.pago)historialesEst[idx].pago=r.pago;
+    if(r.canal)historialesEst[idx].canal=r.canal;
     if(r.pasajeros&&r.pasajeros.length)historialesEst[idx].pasajeros=r.pasajeros.map(function(p){return Object.assign({},p);});
   }
 }
