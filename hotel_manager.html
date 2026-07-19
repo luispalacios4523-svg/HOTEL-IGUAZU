@@ -1024,14 +1024,18 @@ function reintegrarEnHab(h,idx){
 
 // Guarda o actualiza una estadia en historialesEst.
 // Si ya existe con valor=0 y el nuevo valor es mayor, actualiza en vez de saltar.
+function _normNombre(s){return (s||"").replace(/\s+/g," ").trim().toUpperCase();}
+
 // Guarda o actualiza una estadia en historialesEst.
-// Busca por hab+entrada unicamente (una hab no puede tener dos estadias el mismo dia).
+// Busca por hab+entrada+nombre (normalizado) para soportar multiples huespedes el mismo dia.
 // Si ya existe con valor=0 y el nuevo valor es mayor, actualiza en vez de saltar.
 function _pushHistorial(h,r,hues,salida,noches){
   var val=nm(r.valor);
+  var huesNorm=_normNombre(hues||"Sin nombre");
   var idx=-1;
   for(var i=0;i<historialesEst.length;i++){
-    if(historialesEst[i].hab===h&&historialesEst[i].entrada===r.fechaEntrada){idx=i;break;}
+    var e=historialesEst[i];
+    if(e.hab===h&&e.entrada===r.fechaEntrada&&_normNombre(e.huesped)===huesNorm){idx=i;break;}
   }
   if(idx===-1){
     if(hues.trim()||val>0){
