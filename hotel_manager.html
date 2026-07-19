@@ -875,7 +875,6 @@ function renderTable(){
   if(!modoAyer)HABS.forEach(function(h){
     if(!debeOcultarse(h))return;
     var r=reg[h];
-    if(nm(r.valor)===0)return; // no auto-archivar sin valor — dejar visible para ingresar pago
     var p0=r.pasajeros&&r.pasajeros[0]?r.pasajeros[0]:{};
     var hues=[p0.apellidos,p0.nombre].filter(function(x){return x&&x.trim();}).join(" ")||r.nombre||"";
     var noches=parseInt(r.nochesTotal)||1;
@@ -2125,12 +2124,15 @@ function desarchivarAyer(){
     var ayerFmt=d.toLocaleDateString("es-CO",{weekday:"long",day:"numeric",month:"long"});
     if(btn){btn.style.background="#f5a623";btn.style.borderColor="#d4881a";btn.style.color="#fff";btn.textContent="📅 Ver hoy";}
     if(banner){banner.style.display="flex";banner.querySelector("span").textContent="MODO AYER — Ingresando pasajeros del "+ayerFmt+". Las fechas se ponen automáticamente en ese día.";}
-    // Recuperar huéspedes de ayer que ya fueron archivados al mediodía
+    // Recuperar huéspedes de ayer que ya fueron archivados
+    // Al cargarlos en reg[], se eliminan del historial para evitar duplicados.
+    // Cuando el usuario presione "Ver hoy" volverán al historial con el valor correcto.
     var recuperados=0;
-    historialesEst.filter(function(e){return (e.entrada||"")===fAyer;}).forEach(function(e){
+    var indicesRecuperados=[];
+    historialesEst.forEach(function(e,idx){
+      if((e.entrada||"")!==fAyer)return;
       var h=e.hab;
       if(!HABS.includes(h))return;
-      // Solo recuperar si reg[h] está vacío (sin nombre y sin valor)
       if(nc(h).trim()||nm(reg[h].valor)>0)return;
       reg[h].fechaEntrada=e.entrada;
       reg[h].nochesTotal=e.noches||1;
@@ -2138,8 +2140,13 @@ function desarchivarAyer(){
       reg[h].pago=e.pago||"";
       reg[h].canal=e.canal||"";
       reg[h].pasajeros=e.pasajeros&&e.pasajeros.length?e.pasajeros.map(function(p){return Object.assign({},p);}):[{doc:"",apellidos:"",nombre:"",sexo:"",fnac:"",rh:"",tel:""}];
+      indicesRecuperados.push(idx);
       recuperados++;
     });
+    // Eliminar del historial los que se cargaron en reg[] (se re-archivarán al presionar Ver hoy)
+    if(indicesRecuperados.length){
+      historialesEst=historialesEst.filter(function(_,idx){return indicesRecuperados.indexOf(idx)===-1;});
+    }
     if(recuperados>0)guardar();
   } else {
     if(btn){btn.style.background="#e3f0ff";btn.style.borderColor="#1a6bb5";btn.style.color="#1a3a6b";btn.innerHTML="&#128196; Cargar ayer";}
@@ -2157,7 +2164,6 @@ function desarchivarAyer(){
       var nombre=nc(h).trim();
       var valor=nm(r.valor);
       if(!nombre&&!valor)return; // habitacion vacia
-      if(!valor)return; // no archivar sin valor — esperar a que el recepcionista ingrese el pago
       var p0=r.pasajeros&&r.pasajeros[0]?r.pasajeros[0]:{};
       var hues=[p0.apellidos,p0.nombre].filter(function(x){return x&&x.trim();}).join(" ")||r.nombre||"";
       _pushHistorial(h,r,hues,salida,noches);
