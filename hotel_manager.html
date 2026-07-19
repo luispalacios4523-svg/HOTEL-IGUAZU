@@ -1024,12 +1024,14 @@ function reintegrarEnHab(h,idx){
 
 // Guarda o actualiza una estadia en historialesEst.
 // Si ya existe con valor=0 y el nuevo valor es mayor, actualiza en vez de saltar.
+// Guarda o actualiza una estadia en historialesEst.
+// Busca por hab+entrada unicamente (una hab no puede tener dos estadias el mismo dia).
+// Si ya existe con valor=0 y el nuevo valor es mayor, actualiza en vez de saltar.
 function _pushHistorial(h,r,hues,salida,noches){
   var val=nm(r.valor);
   var idx=-1;
   for(var i=0;i<historialesEst.length;i++){
-    var e=historialesEst[i];
-    if(e.hab===h&&e.entrada===r.fechaEntrada&&e.huesped===(hues.trim()||"Sin nombre")){idx=i;break;}
+    if(historialesEst[i].hab===h&&historialesEst[i].entrada===r.fechaEntrada){idx=i;break;}
   }
   if(idx===-1){
     if(hues.trim()||val>0){
@@ -1038,8 +1040,8 @@ function _pushHistorial(h,r,hues,salida,noches){
         pasajeros:(r.pasajeros||[]).map(function(p){return Object.assign({},p);})});
     }
   } else if(val>0&&historialesEst[idx].valor===0){
-    // Actualizar si el valor anterior era 0 y ahora hay valor real
     historialesEst[idx].valor=val;
+    historialesEst[idx].huesped=hues||historialesEst[idx].huesped;
     historialesEst[idx].pago=r.pago||historialesEst[idx].pago;
     historialesEst[idx].canal=r.canal||historialesEst[idx].canal;
     if(r.pasajeros&&r.pasajeros.length)historialesEst[idx].pasajeros=r.pasajeros.map(function(p){return Object.assign({},p);});
