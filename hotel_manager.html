@@ -902,7 +902,13 @@ function renderTable(){
       // NOMBRE
       html+="<td id='nc"+h+"'><span style='padding:4px 6px;font-size:14px'>"+(okVis?esc(nombreVis):"<span style='color:#aaa'>Nombre cliente</span>")+"</span></td>";
       // VALOR
-      html+="<td style='text-align:right'><input class='ci val' type='number' value='"+esc(rVis.valor)+"' placeholder='0' style='width:110px;text-align:right' oninput='updHab("+h+",\"valor\",this.value)' onblur='validarPago("+h+",this)'></td>";
+      var pagoPrevio=!modoAyer&&r.fechaEntrada&&r.fechaEntrada<fHoyStr&&nm(r.valor)>0;
+      if(pagoPrevio){
+        var partesFecha=r.fechaEntrada.split("-");var etiqFecha=partesFecha[2]+"/"+partesFecha[1];
+        html+="<td style='text-align:right'><span style='color:#aaa;font-size:13px'>"+fmt(nm(r.valor))+"</span><br><span style='color:#aaa;font-size:10px'>pag."+etiqFecha+"</span></td>";
+      } else {
+        html+="<td style='text-align:right'><input class='ci val' type='number' value='"+esc(rVis.valor)+"' placeholder='0' style='width:110px;text-align:right' oninput='updHab("+h+",\"valor\",this.value)' onblur='validarPago("+h+",this)'></td>";
+      }
       // CANAL
       html+="<td><select class='ci' onchange='updHab("+h+",\"canal\",this.value)' style='width:100px'>"+canalOpts(rVis.canal)+"</select></td>";
       // NOCHES
@@ -1444,8 +1450,8 @@ function calcTotales(){
   var fHoyStr2=new Date().toLocaleDateString('en-CA');
   HABS.forEach(function(h){
     var r=reg[h];
-    // En modo hoy, excluir habitaciones con estadía expirada del total
-    if(!modoAyer&&r.fechaEntrada&&r.fechaEntrada<fHoyStr2&&calcSalida(r.fechaEntrada,parseInt(r.nochesTotal)||1)<=fHoyStr2)return;
+    // En modo hoy, excluir habitaciones con estadía expirada o con pago de día anterior
+    if(!modoAyer&&r.fechaEntrada&&r.fechaEntrada<fHoyStr2)return;
     var v=nm(r.valor);totalHab+=v;if(r.pago&&tots[r.pago]!==undefined)tots[r.pago]+=v;
   });
   var gast=gastos.reduce(function(a,g){return a+g.monto;},0);
