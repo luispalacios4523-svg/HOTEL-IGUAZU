@@ -1483,7 +1483,7 @@ function openModal(tipo){
   } else if(tipo==="historial-tienda"){
     html="<h3>Historial ventas tienda</h3><div style='max-height:360px;overflow-y:auto;margin-bottom:12px'>";
     if(!historialVentas.length){html+="<div style='color:#888'>Sin ventas</div>";}
-    else{historialVentas.slice().reverse().forEach(function(v){html+="<div style='border:1px solid #eee;border-radius:6px;padding:10px;margin-bottom:8px'><div style='font-size:11px;color:#888;margin-bottom:6px'>"+v.fecha+"</div>";v.items.forEach(function(it){html+="<div style='display:flex;justify-content:space-between;font-size:13px'><span>"+esc(it.nombre)+" x"+it.qty+"</span><span>"+fmt(it.precio*it.qty)+"</span></div>";});html+="<div style='display:flex;justify-content:space-between;font-weight:bold;border-top:1px solid #eee;margin-top:6px;padding-top:6px'><span>Total</span><span style='color:#2d6a3f'>"+fmt(v.total)+"</span></div></div>";});}
+    else{historialVentas.slice().reverse().forEach(function(v){var auditV=v.creadoEn?(v.creadoEn+(v.creadoPor?" · "+v.creadoPor:"")):"";html+="<div style='border:1px solid #eee;border-radius:6px;padding:10px;margin-bottom:8px'><div style='font-size:11px;color:#888;margin-bottom:4px'>"+v.fecha+(auditV?" &nbsp;·&nbsp; <span style='color:#bbb'>"+esc(auditV)+"</span>":"")+"</div>";v.items.forEach(function(it){html+="<div style='display:flex;justify-content:space-between;font-size:13px'><span>"+esc(it.nombre)+" x"+it.qty+"</span><span>"+fmt(it.precio*it.qty)+"</span></div>";});html+="<div style='display:flex;justify-content:space-between;font-weight:bold;border-top:1px solid #eee;margin-top:6px;padding-top:6px'><span>Total</span><span style='color:#2d6a3f'>"+fmt(v.total)+"</span></div></div>";});}
     html+="</div><button class='tbtn' onclick='closeOverlay()'>Cerrar</button>";
   }
   showOverlay(html,false);
@@ -1599,7 +1599,8 @@ function cobrarVenta(){
   });
   var fechaVenta=document.getElementById("venta-fecha");
   var fv=fechaVenta&&fechaVenta.value?fechaVenta.value:new Date().toLocaleDateString('en-CA');
-  historialVentas.push({fecha:fv,items:carrito.slice(),total:total,ganancia:gan,pago:pago});
+  var _ahora=new Date();var _tsV=_ahora.toLocaleDateString('en-CA')+" "+_ahora.toTimeString().slice(0,5);
+  historialVentas.push({fecha:fv,items:carrito.slice(),total:total,ganancia:gan,pago:pago,creadoPor:sesion.nombre||sesion.usuario||"",creadoEn:_tsV});
   var el2=document.getElementById("carrito-pago");if(el2){el2.value="";el2.style.border="2px solid #ccc";el2.style.background="";}
   carrito=[];
   guardar();renderTienda();renderCarrito();calcTotales();
@@ -1719,7 +1720,8 @@ function registrarGasto(){
   var cat=document.getElementById("g-cat").value;var desc=getDesc().trim();var pago=document.getElementById("g-pago").value;
   if(!fecha||!monto||!cat||!desc||!pago){alert("Completa todos los campos incluyendo Forma de pago.");return;}
   if(cat==="NOM"&&!desc.trim().toLowerCase().startsWith("turno")){alert("Para NOM la descripción debe empezar con 'Turno'. Ejemplo: Turno mary, Turno ovidio vacaciones.");return;}
-  gastosDetalle.push({id:Date.now(),fecha:fecha,monto:monto,cat:cat,desc:desc,pago:pago});
+  var _ahoraG=new Date();var _tsG=_ahoraG.toLocaleDateString('en-CA')+" "+_ahoraG.toTimeString().slice(0,5);
+  gastosDetalle.push({id:Date.now(),fecha:fecha,monto:monto,cat:cat,desc:desc,pago:pago,creadoPor:sesion.nombre||sesion.usuario||"",creadoEn:_tsG});
   document.getElementById("g-monto").value="";
   document.getElementById("g-pago").value="";
   limpiarChips();guardar();renderGastosTab();calcTotales();
@@ -1736,7 +1738,7 @@ function renderGastosTab(){
     return true;
   }).sort(function(a,b){var fd=(b.fecha||"").localeCompare(a.fecha||"");return fd!==0?fd:(b.id||0)-(a.id||0);});
   var tb=document.getElementById("tbody-gastos");
-  tb.innerHTML=lista.length?lista.map(function(g){var bg=CAT_COLORS[g.cat]||"#f9f9f9";var tc=CAT_TEXT[g.cat]||"#333";return "<tr style='border-bottom:1px solid #eee;'><td style='padding:7px 8px;'>"+g.fecha+"</td><td style='padding:7px 8px;text-align:right;font-weight:bold;'>"+fmt(g.monto)+"</td><td style='padding:7px 8px;'><span style='background:"+bg+";color:"+tc+";padding:2px 8px;border-radius:10px;font-size:12px;font-weight:bold;'>"+g.cat+"</span></td><td style='padding:7px 8px;'>"+esc(g.desc)+"</td><td style='padding:7px 8px;'>"+g.pago+"</td><td style='padding:7px 8px;'><button onclick='eliminarGasto("+g.id+")' style='border:none;background:none;cursor:pointer;color:#c00;font-size:13px'>&#10005;</button></td></tr>";}).join(""):"<tr><td colspan='6' style='padding:20px;text-align:center;color:#888'>Sin gastos</td></tr>";
+  tb.innerHTML=lista.length?lista.map(function(g){var bg=CAT_COLORS[g.cat]||"#f9f9f9";var tc=CAT_TEXT[g.cat]||"#333";var audit=g.creadoEn?(g.creadoEn+(g.creadoPor?" · "+g.creadoPor:"")):"";return "<tr style='border-bottom:1px solid #eee;'><td style='padding:7px 8px;'>"+g.fecha+(audit?"<br><span style='font-size:10px;color:#aaa'>"+esc(audit)+"</span>":"")+"</td><td style='padding:7px 8px;text-align:right;font-weight:bold;'>"+fmt(g.monto)+"</td><td style='padding:7px 8px;'><span style='background:"+bg+";color:"+tc+";padding:2px 8px;border-radius:10px;font-size:12px;font-weight:bold;'>"+g.cat+"</span></td><td style='padding:7px 8px;'>"+esc(g.desc)+"</td><td style='padding:7px 8px;'>"+g.pago+"</td><td style='padding:7px 8px;'><button onclick='eliminarGasto("+g.id+")' style='border:none;background:none;cursor:pointer;color:#c00;font-size:13px'>&#10005;</button></td></tr>";}).join(""):"<tr><td colspan='6' style='padding:20px;text-align:center;color:#888'>Sin gastos</td></tr>";
   var totCat={},totPago={},gran=0;
   Object.keys(CATS).forEach(function(c){totCat[c]=0;});PAGOS.slice(1).forEach(function(p){totPago[p]=0;});
   lista.forEach(function(g){gran+=g.monto;if(totCat[g.cat]!==undefined)totCat[g.cat]+=g.monto;if(totPago[g.pago]!==undefined)totPago[g.pago]+=g.monto;});
@@ -2299,7 +2301,8 @@ function ventaManual(){
     alert('Selecciona la forma de pago.');return;
   }
   // Venta manual va directo al historial (no al carrito)
-  historialVentas.push({fecha:fecha,items:[{nombre:desc,precio:valor,costo:0,qty:1}],total:valor,ganancia:valor,pago:pago,manual:true});
+  var _ahoraM=new Date();var _tsM=_ahoraM.toLocaleDateString('en-CA')+" "+_ahoraM.toTimeString().slice(0,5);
+  historialVentas.push({fecha:fecha,items:[{nombre:desc,precio:valor,costo:0,qty:1}],total:valor,ganancia:valor,pago:pago,manual:true,creadoPor:sesion.nombre||sesion.usuario||"",creadoEn:_tsM});
   guardar();calcTotales();
   document.getElementById('vm-desc').value='';
   document.getElementById('vm-valor').value='';
