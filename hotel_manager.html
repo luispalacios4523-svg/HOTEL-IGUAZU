@@ -502,7 +502,7 @@ function doLogin(){
   aplicarPermisos();
   cargarConReintentos(3);
   setInterval(function(){
-    var urls=['/api/efectivo','https://bicicletas-electricas.onrender.com/api/efectivo','https://clientes-online.onrender.com/api/efectivo'];
+    var urls=['/api/efectivo','https://bicicletas-electricas-zpos.onrender.com/api/efectivo','https://clientes-online-d8pk.onrender.com/api/efectivo'];
     Promise.all(urls.map(function(u){return fetch(u).then(function(r){return r.json();}).catch(function(){return {efectivo:0};});}))
     .then(function(res){
       var tot=res.reduce(function(s,r){return s+(r.efectivo||0);},0);
@@ -2034,7 +2034,7 @@ function renderCaja(){
   document.getElementById("caja-efectivo-total").textContent=fmt(efSaldo);
   // Guardar efectivo actual y calcular total
   fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({efectivo_actual:efSaldo})});
-  var _urls=['https://bicicletas-electricas.onrender.com/api/efectivo','https://clientes-online.onrender.com/api/efectivo'];
+  var _urls=['https://bicicletas-electricas-zpos.onrender.com/api/efectivo','https://clientes-online-d8pk.onrender.com/api/efectivo'];
   Promise.all(_urls.map(function(u){return fetch(u).then(function(r){return r.json();}).catch(function(){return {efectivo:0};});}))
   .then(function(res){var tot=efSaldo+res.reduce(function(s,r){return s+(r.efectivo||0);},0);document.getElementById('total-efectivo-global').textContent=fmt(tot);});
   document.getElementById("caja-general-total").textContent=fmt(efSaldo+digSaldo+(tots["Ayenda"].ing-tots["Ayenda"].gas));
