@@ -357,6 +357,7 @@ td{padding:4px 6px;vertical-align:middle;}
         <input type="text" id="g-desc-libre" placeholder="Detalle del gasto" style="width:220px;padding:7px 9px;border:1px solid #ccc;border-radius:6px;font-size:14px;"/>
       </div>
       <button class="tbtn tbtn-warn" onclick="registrarGasto()" style="padding:8px 18px;font-size:14px;">+ Registrar</button>
+      <span id="gasto-msg" style="font-size:13px;margin-left:8px;"></span>
     </div>
   </div>
   <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
@@ -549,7 +550,7 @@ HABS.forEach(function(h){reg[h]=initHab(h);});
 document.getElementById("fecha-hoy").textContent=new Date().toLocaleDateString("es-CO",{day:"2-digit",month:"long",year:"numeric"});
 
 var _datosListos=false;
-function guardar(){
+function guardar(_extraMsgId){
   if(!_datosListos)return;
   var payload={
     hotel_reg:reg,
@@ -568,6 +569,7 @@ function guardar(){
       if(!r.ok)throw new Error('HTTP '+r.status);
       var m=document.getElementById("saved-msg");
       if(m){m.innerHTML="✅ Guardado";m.style.color="#2a6a3a";m.style.background="";m.style.padding="";m.style.borderRadius="";m.style.cursor="";m.onclick=null;setTimeout(function(){m.innerHTML="";},2000);}
+      if(_extraMsgId){var em=document.getElementById(_extraMsgId);if(em){em.innerHTML="✅ Guardado";em.style.color="#2a6a3a";setTimeout(function(){em.innerHTML="";},3000);}}
     }).catch(function(e){
       console.error("Error guardando:",e);
       var m=document.getElementById("saved-msg");
@@ -576,6 +578,7 @@ function guardar(){
         m.style.color="#c0392b";m.style.background="#fdecea";m.style.padding="4px 10px";m.style.borderRadius="6px";
         window._ultimoPayload=_payload;
       }
+      if(_extraMsgId){var em=document.getElementById(_extraMsgId);if(em){em.innerHTML="❌ Error — NO guardado";em.style.color="#c0392b";}}
     });
 }
 function _reintentarGuardar(){
@@ -1748,7 +1751,7 @@ function registrarGasto(){
   gastosDetalle.push({id:Date.now(),fecha:fecha,monto:monto,cat:cat,desc:desc,pago:pago,creadoPor:sesion.nombre||sesion.usuario||"",creadoEn:_tsG});
   document.getElementById("g-monto").value="";
   document.getElementById("g-pago").value="";
-  limpiarChips();guardar();renderGastosTab();calcTotales();
+  limpiarChips();guardar("gasto-msg");renderGastosTab();calcTotales();
 }
 function verTodosGastos(){document.getElementById("filtro-cat").value="";document.getElementById("filtro-nombre").value="";document.getElementById("filtro-mes").value="";renderGastosTab();}
 function renderGastosTab(){
