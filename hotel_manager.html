@@ -578,7 +578,7 @@ function guardar(_extraMsgId){
         m.style.color="#c0392b";m.style.background="#fdecea";m.style.padding="4px 10px";m.style.borderRadius="6px";
         window._ultimoPayload=_payload;
       }
-      if(_extraMsgId){var em=document.getElementById(_extraMsgId);if(em){em.innerHTML="❌ Error — NO guardado";em.style.color="#c0392b";}}
+      if(_extraMsgId){var em=document.getElementById(_extraMsgId);if(em){em.innerHTML="❌ Error — NO guardado &nbsp;<button onclick='_reintentarGuardar()' style='background:#c0392b;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;'>Reintentar</button>";em.style.color="#c0392b";}}
     });
 }
 function _reintentarGuardar(){
