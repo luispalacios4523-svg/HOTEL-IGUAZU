@@ -34,8 +34,13 @@ if DATABASE_URL:
 
     def db_load_all():
         conn = get_db()
-        rows = conn.run('SELECT key, value FROM store')
-        conn.close()
+        try:
+            rows = conn.run('SELECT key, value FROM store')
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
         result = {}
         for key, value in rows:
             try:
@@ -45,13 +50,23 @@ if DATABASE_URL:
         return result
 
     def db_save(data):
+        # Todo o nada: si algo falla a mitad, Postgres descarta los cambios
+        # y los datos quedan como estaban. Nunca se guarda "una parte".
         conn = get_db()
-        for key, value in data.items():
-            conn.run(
-                'INSERT INTO store (key, value) VALUES (:key, :value) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value',
-                key=key, value=json.dumps(value, ensure_ascii=False)
-            )
-        conn.close()
+        try:
+            conn.run('BEGIN')
+            for key, value in data.items():
+                conn.run(
+                    'INSERT INTO store (key, value) VALUES (:key, :value) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value',
+                    key=key, value=json.dumps(value, ensure_ascii=False)
+                )
+            conn.run('COMMIT')
+        finally:
+            # Se cierra siempre, aunque el proceso muera por timeout
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 else:
     import sqlite3
