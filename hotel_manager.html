@@ -550,6 +550,7 @@ HABS.forEach(function(h){reg[h]=initHab(h);});
 document.getElementById("fecha-hoy").textContent=new Date().toLocaleDateString("es-CO",{day:"2-digit",month:"long",year:"numeric"});
 
 var _datosListos=false;
+var _MSG_ERROR="❌ Error al guardar — dato NO guardado &nbsp;<button onclick='_reintentarGuardar()' style='background:#c0392b;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;'>Reintentar</button>";
 function guardar(_extraMsgId){
   if(!_datosListos)return;
   var payload={
@@ -572,27 +573,34 @@ function guardar(_extraMsgId){
       if(_extraMsgId){var em=document.getElementById(_extraMsgId);if(em){em.innerHTML="✅ Guardado";em.style.color="#2a6a3a";setTimeout(function(){em.innerHTML="";},3000);}}
     }).catch(function(e){
       console.error("Error guardando:",e);
+      // Se guardan SIEMPRE, aunque no exista el elemento del mensaje,
+      // para que el boton Reintentar nunca quede sin datos que reenviar.
+      window._ultimoPayload=_payload;
+      window._ultimoExtraMsgId=_extraMsgId||null;
       var m=document.getElementById("saved-msg");
       if(m){
-        m.innerHTML="❌ Error al guardar — dato NO guardado &nbsp;<button onclick='_reintentarGuardar()' style='background:#c0392b;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;'>Reintentar</button>";
+        m.innerHTML=_MSG_ERROR;
         m.style.color="#c0392b";m.style.background="#fdecea";m.style.padding="4px 10px";m.style.borderRadius="6px";
-        window._ultimoPayload=_payload;
       }
-      if(_extraMsgId){var em=document.getElementById(_extraMsgId);if(em){em.innerHTML="❌ Error — NO guardado &nbsp;<button onclick='_reintentarGuardar()' style='background:#c0392b;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;'>Reintentar</button>";em.style.color="#c0392b";}}
+      if(_extraMsgId){var em=document.getElementById(_extraMsgId);if(em){em.innerHTML=_MSG_ERROR;em.style.color="#c0392b";}}
     });
 }
 function _reintentarGuardar(){
   if(!window._ultimoPayload)return;
   var m=document.getElementById("saved-msg");
+  // El reintento actualiza TAMBIEN el mensaje del campo donde se origino el error
+  var em=window._ultimoExtraMsgId?document.getElementById(window._ultimoExtraMsgId):null;
   if(m)m.innerHTML="⏳ Reintentando...";
+  if(em)em.innerHTML="⏳ Reintentando...";
   fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(window._ultimoPayload)})
     .then(function(r){
       if(!r.ok)throw new Error('HTTP '+r.status);
-      var m=document.getElementById("saved-msg");
-      if(m){m.innerHTML="✅ Guardado";m.style.color="#2a6a3a";m.style.background="";m.style.padding="";setTimeout(function(){m.innerHTML="";},2000);}
+      window._ultimoPayload=null;window._ultimoExtraMsgId=null;
+      if(m){m.innerHTML="✅ Guardado";m.style.color="#2a6a3a";m.style.background="";m.style.padding="";m.style.borderRadius="";setTimeout(function(){m.innerHTML="";},2000);}
+      if(em){em.innerHTML="✅ Guardado";em.style.color="#2a6a3a";setTimeout(function(){em.innerHTML="";},3000);}
     }).catch(function(e){
-      var m=document.getElementById("saved-msg");
-      if(m)m.innerHTML="❌ Error al guardar — dato NO guardado &nbsp;<button onclick='_reintentarGuardar()' style='background:#c0392b;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;'>Reintentar</button>";
+      if(m)m.innerHTML=_MSG_ERROR;
+      if(em)em.innerHTML=_MSG_ERROR;
     });
 }
 
