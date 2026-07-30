@@ -114,6 +114,13 @@ def _cors(response):
     response.headers['Access-Control-Allow-Origin'] = '*'
     return response
 
+@app.route('/health')
+def health():
+    # Chequeo liviano para Render. NO consulta la base de datos a proposito:
+    # su unico trabajo es probar que el worker puede responder. Si el worker
+    # esta atascado, esto no contesta y Render reinicia el servicio solo.
+    return 'ok', 200
+
 @app.route('/')
 def index():
     return send_file('hotel_manager.html')
