@@ -551,9 +551,13 @@ document.getElementById("fecha-hoy").textContent=new Date().toLocaleDateString("
 
 var _datosListos=false;
 var _MSG_ERROR="❌ Error al guardar — dato NO guardado &nbsp;<button onclick='_reintentarGuardar()' style='background:#c0392b;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;'>Reintentar</button>";
-function guardar(_extraMsgId){
-  if(!_datosListos)return;
-  var payload={
+// Foto de lo ultimo que el servidor confirmo haber guardado, clave por clave.
+// Sirve para enviar UNICAMENTE lo que cambio, y asi no pisar con una copia
+// vieja lo que haya registrado otro computador.
+var _baseEnviado=null;
+
+function _payloadCompleto(){
+  return {
     hotel_reg:reg,
     hotel_gastos:gastos,
     hotel_gastosdet:gastosDetalle,
@@ -564,18 +568,42 @@ function guardar(_extraMsgId){
     hotel_compras:comprasTienda,
     hotel_ajustes:ajustes
   };
-  var _payload=payload;
-  fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(_payload)})
+}
+
+// Fija la referencia con lo que el servidor acaba de entregar.
+function _fijarBase(){
+  var c=_payloadCompleto();_baseEnviado={};
+  for(var k in c){_baseEnviado[k]=JSON.stringify(c[k]);}
+}
+
+function _msgGuardado(_extraMsgId){
+  var m=document.getElementById("saved-msg");
+  if(m){m.innerHTML="✅ Guardado";m.style.color="#2a6a3a";m.style.background="";m.style.padding="";m.style.borderRadius="";m.style.cursor="";m.onclick=null;setTimeout(function(){m.innerHTML="";},2000);}
+  if(_extraMsgId){var em=document.getElementById(_extraMsgId);if(em){em.innerHTML="✅ Guardado";em.style.color="#2a6a3a";setTimeout(function(){em.innerHTML="";},3000);}}
+}
+
+function guardar(_extraMsgId){
+  if(!_datosListos)return;
+  var completo=_payloadCompleto();
+  var payload={},strs={},hayCambios=false;
+  for(var k in completo){
+    var s=JSON.stringify(completo[k]);
+    strs[k]=s;
+    // Si no hay referencia todavia, se envia todo (comportamiento anterior).
+    if(!_baseEnviado||_baseEnviado[k]!==s){payload[k]=completo[k];hayCambios=true;}
+  }
+  if(!hayCambios){_msgGuardado(_extraMsgId);return;}
+  fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
     .then(function(r){
       if(!r.ok)throw new Error('HTTP '+r.status);
-      var m=document.getElementById("saved-msg");
-      if(m){m.innerHTML="✅ Guardado";m.style.color="#2a6a3a";m.style.background="";m.style.padding="";m.style.borderRadius="";m.style.cursor="";m.onclick=null;setTimeout(function(){m.innerHTML="";},2000);}
-      if(_extraMsgId){var em=document.getElementById(_extraMsgId);if(em){em.innerHTML="✅ Guardado";em.style.color="#2a6a3a";setTimeout(function(){em.innerHTML="";},3000);}}
+      // Solo se actualiza la referencia de lo que el servidor confirmo.
+      if(!_baseEnviado)_baseEnviado={};
+      for(var k in payload){_baseEnviado[k]=strs[k];}
+      window._ultimoExtraMsgId=null;
+      _msgGuardado(_extraMsgId);
     }).catch(function(e){
       console.error("Error guardando:",e);
-      // Se guardan SIEMPRE, aunque no exista el elemento del mensaje,
-      // para que el boton Reintentar nunca quede sin datos que reenviar.
-      window._ultimoPayload=_payload;
+      // La referencia NO se actualiza: lo pendiente se reenvia al reintentar.
       window._ultimoExtraMsgId=_extraMsgId||null;
       var m=document.getElementById("saved-msg");
       if(m){
@@ -585,23 +613,15 @@ function guardar(_extraMsgId){
       if(_extraMsgId){var em=document.getElementById(_extraMsgId);if(em){em.innerHTML=_MSG_ERROR;em.style.color="#c0392b";}}
     });
 }
+
 function _reintentarGuardar(){
-  if(!window._ultimoPayload)return;
+  // Vuelve a calcular que falta y lo reenvia. Al no haberse actualizado la
+  // referencia en el fallo, lo pendiente se detecta solo.
+  var id=window._ultimoExtraMsgId||null;
   var m=document.getElementById("saved-msg");
-  // El reintento actualiza TAMBIEN el mensaje del campo donde se origino el error
-  var em=window._ultimoExtraMsgId?document.getElementById(window._ultimoExtraMsgId):null;
-  if(m)m.innerHTML="⏳ Reintentando...";
-  if(em)em.innerHTML="⏳ Reintentando...";
-  fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(window._ultimoPayload)})
-    .then(function(r){
-      if(!r.ok)throw new Error('HTTP '+r.status);
-      window._ultimoPayload=null;window._ultimoExtraMsgId=null;
-      if(m){m.innerHTML="✅ Guardado";m.style.color="#2a6a3a";m.style.background="";m.style.padding="";m.style.borderRadius="";setTimeout(function(){m.innerHTML="";},2000);}
-      if(em){em.innerHTML="✅ Guardado";em.style.color="#2a6a3a";setTimeout(function(){em.innerHTML="";},3000);}
-    }).catch(function(e){
-      if(m)m.innerHTML=_MSG_ERROR;
-      if(em)em.innerHTML=_MSG_ERROR;
-    });
+  if(m){m.innerHTML="⏳ Reintentando...";m.style.color="#7a5c00";m.style.background="";m.style.padding="";m.style.borderRadius="";}
+  if(id){var em=document.getElementById(id);if(em){em.innerHTML="⏳ Reintentando...";em.style.color="#7a5c00";}}
+  guardar(id);
 }
 
 function cargar(){
@@ -623,7 +643,15 @@ function cargar(){
       if(d.hotel_cats_custom&&typeof d.hotel_cats_custom==="object"){CATS_CUSTOM=d.hotel_cats_custom;reconstruirCats();}
     }catch(e){console.error("Error cargando:",e);}
     _datosListos=true;
-  }).catch(function(e){console.error("Error cargando:",e);_datosListos=true;});
+    // La referencia queda fijada con lo que el servidor acaba de entregar.
+    _fijarBase();
+  }).catch(function(e){
+    console.error("Error cargando:",e);
+    _datosListos=true;
+    // Tambien si fallo la carga: sin referencia se enviarian las 9 claves
+    // desde una copia vacia y se borraria lo que hay en el servidor.
+    _fijarBase();
+  });
 }
 
 function cargarConReintentos(intentosRestantes){
