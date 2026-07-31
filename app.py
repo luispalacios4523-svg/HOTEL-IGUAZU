@@ -123,7 +123,13 @@ def health():
 
 @app.route('/')
 def index():
-    return send_file('hotel_manager.html')
+    # Sin esto el navegador se queda con la version vieja guardada y obliga
+    # al usuario a hacer Ctrl+F5 despues de cada actualizacion.
+    from flask import make_response
+    resp = make_response(send_file('hotel_manager.html'))
+    resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    resp.headers['Pragma'] = 'no-cache'
+    return resp
 
 @app.route('/api/efectivo')
 def efectivo():
