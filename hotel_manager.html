@@ -2144,6 +2144,9 @@ function renderCaja(){
 
 // INICIO
 function autoArchivarVencidos(){
+  // Mientras se cargan los datos de ayer no se archiva nada: las habitaciones
+  // estan siendo editadas a proposito con fecha pasada.
+  if(modoAyer)return;
   var hubo=false;
   HABS.forEach(function(h){
     if(!debeOcultarse(h))return;
@@ -2152,19 +2155,17 @@ function autoArchivarVencidos(){
     var hues=[p0.apellidos,p0.nombre].filter(function(x){return x&&x.trim();}).join(" ")||r.nombre||"";
     var noches=parseInt(r.nochesTotal)||1;
     var salida=calcSalida(r.fechaEntrada,noches);
-    var yaExiste=historialesEst.some(function(e){return e.hab===h&&e.entrada===r.fechaEntrada&&e.huesped===(hues.trim()||"Sin nombre");});
     var tieneDatos=!!(hues.trim()||nm(r.valor)>0);
-    var seArchivo=false;
-    if(!yaExiste&&tieneDatos){
-      historialesEst.push({hab:h,huesped:hues||"Sin nombre",entrada:r.fechaEntrada,salida:salida,
-        noches:noches,valor:nm(r.valor),pago:r.pago||"",canal:r.canal||"",
-        pasajeros:(r.pasajeros||[]).map(function(p){return Object.assign({},p);})});
-      seArchivo=true;
-    }
-    // Solo se libera la habitacion si el registro quedo respaldado en el
-    // historial, si ya estaba archivado antes, o si no habia nada que perder.
-    // Antes esta linea corria SIEMPRE y podia borrar un registro sin archivarlo.
-    if(seArchivo||yaExiste||!tieneDatos){
+    // _pushHistorial agrega si no existe y ACTUALIZA si ya estaba: nunca duplica
+    // y nunca pierde una edicion hecha desde la habitacion.
+    if(tieneDatos)_pushHistorial(h,r,hues,salida,noches);
+    // La habitacion solo se libera despues de comprobar que el registro quedo
+    // efectivamente en el historial. Antes se liberaba siempre, aunque el
+    // archivado no se hubiera ejecutado, y el registro desaparecia.
+    var respaldado=!tieneDatos||historialesEst.some(function(e){
+      return e.hab===h&&e.entrada===r.fechaEntrada;
+    });
+    if(respaldado){
       reg[h]=initHab(h);
       hubo=true;
     }else{
@@ -2174,10 +2175,9 @@ function autoArchivarVencidos(){
   if(hubo){guardar();renderTable();}
 }
 
-// Archivado automatico DESACTIVADO mientras se investiga la perdida de
-// registros del 31/07/2026. Corria solo cada 5 minutos, sin supervision.
-// Para reactivarlo, quitar el comentario de la linea siguiente.
-// setInterval(function(){autoArchivarVencidos();}, 5*60*1000);
+// Auto-archivar cada 5 minutos. Ya no puede destruir registros: solo libera la
+// habitacion despues de confirmar que quedo respaldada en el historial.
+setInterval(function(){autoArchivarVencidos();}, 5*60*1000);
 
 // Backup automático al cerrar - una vez por día
 window.addEventListener('beforeunload', function(){
@@ -2251,10 +2251,12 @@ function desarchivarAyer(){
       indicesRecuperados.push(idx);
       recuperados++;
     });
-    // Eliminar del historial los que se cargaron en reg[] (se re-archivarán al presionar Ver hoy)
-    if(indicesRecuperados.length){
-      historialesEst=historialesEst.filter(function(_,idx){return indicesRecuperados.indexOf(idx)===-1;});
-    }
+    // NO se eliminan del historial. _pushHistorial() ya localiza la entrada
+    // existente (hab + entrada + huesped) y la ACTUALIZA en vez de duplicarla,
+    // asi que este borrado era innecesario.
+    // Y era peligroso: dejaba los registros viviendo unicamente en reg[]. Si la
+    // pagina se recargaba o se cerraba antes de presionar "Ver hoy", el borrado
+    // ya estaba guardado en el servidor y los registros se perdian para siempre.
     if(recuperados>0)guardar();
   } else {
     if(btn){btn.style.background="#e3f0ff";btn.style.borderColor="#1a6bb5";btn.style.color="#1a3a6b";btn.innerHTML="&#128196; Cargar ayer";}
