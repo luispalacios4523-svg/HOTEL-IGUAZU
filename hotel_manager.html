@@ -570,10 +570,21 @@ function _payloadCompleto(){
   };
 }
 
+var _baseConteo={};
+var _NOMBRE_CLAVE={hotel_reg:"Habitaciones",hotel_gastos:"Gastos rapidos",hotel_gastosdet:"Gastos",
+  hotel_productos:"Productos",hotel_historial:"Historial de ventas",hotel_estadias:"Historial de huespedes",
+  hotel_saldo:"Saldo inicial",hotel_compras:"Compras tienda",hotel_ajustes:"Ajustes"};
+
+function _contar(v){
+  if(Array.isArray(v))return v.length;
+  if(v&&typeof v==="object")return Object.keys(v).length;
+  return -1;
+}
+
 // Fija la referencia con lo que el servidor acaba de entregar.
 function _fijarBase(){
-  var c=_payloadCompleto();_baseEnviado={};
-  for(var k in c){_baseEnviado[k]=JSON.stringify(c[k]);}
+  var c=_payloadCompleto();_baseEnviado={};_baseConteo={};
+  for(var k in c){_baseEnviado[k]=JSON.stringify(c[k]);_baseConteo[k]=_contar(c[k]);}
 }
 
 function _msgGuardado(_extraMsgId){
@@ -585,20 +596,40 @@ function _msgGuardado(_extraMsgId){
 function guardar(_extraMsgId){
   if(!_datosListos)return;
   var completo=_payloadCompleto();
-  var payload={},strs={},hayCambios=false;
+  var payload={},strs={},cnts={},hayCambios=false;
   for(var k in completo){
     var s=JSON.stringify(completo[k]);
-    strs[k]=s;
+    strs[k]=s;cnts[k]=_contar(completo[k]);
     // Si no hay referencia todavia, se envia todo (comportamiento anterior).
     if(!_baseEnviado||_baseEnviado[k]!==s){payload[k]=completo[k];hayCambios=true;}
   }
   if(!hayCambios){_msgGuardado(_extraMsgId);return;}
+
+  // FRENO DE SEGURIDAD: si un guardado va a eliminar varios registros de golpe,
+  // se detiene y se pide confirmacion. Evita perdidas masivas silenciosas.
+  var alerta=[];
+  for(var k in payload){
+    var antes=_baseConteo[k],ahora=cnts[k];
+    if(typeof antes==="number"&&antes>0&&ahora>=0&&(antes-ahora)>=3){
+      alerta.push("  • "+(_NOMBRE_CLAVE[k]||k)+": "+antes+" → "+ahora+"  (se eliminarian "+(antes-ahora)+")");
+    }
+  }
+  if(alerta.length){
+    if(!confirm("⚠️ ATENCION — Este guardado va a ELIMINAR registros:\n\n"+alerta.join("\n")+
+      "\n\nSi usted acaba de borrar eso a proposito, presione Aceptar.\n"+
+      "Si NO borro nada, presione CANCELAR: no se guardara y sus datos quedan intactos.")){
+      var mC=document.getElementById("saved-msg");
+      if(mC){mC.innerHTML="⛔ Guardado cancelado — no se elimino nada";mC.style.color="#c0392b";mC.style.background="#fdecea";mC.style.padding="4px 10px";mC.style.borderRadius="6px";}
+      return;
+    }
+  }
+
   fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
     .then(function(r){
       if(!r.ok)throw new Error('HTTP '+r.status);
       // Solo se actualiza la referencia de lo que el servidor confirmo.
       if(!_baseEnviado)_baseEnviado={};
-      for(var k in payload){_baseEnviado[k]=strs[k];}
+      for(var k in payload){_baseEnviado[k]=strs[k];_baseConteo[k]=cnts[k];}
       window._ultimoExtraMsgId=null;
       _msgGuardado(_extraMsgId);
     }).catch(function(e){
@@ -2122,19 +2153,31 @@ function autoArchivarVencidos(){
     var noches=parseInt(r.nochesTotal)||1;
     var salida=calcSalida(r.fechaEntrada,noches);
     var yaExiste=historialesEst.some(function(e){return e.hab===h&&e.entrada===r.fechaEntrada&&e.huesped===(hues.trim()||"Sin nombre");});
-    if(!yaExiste&&(hues.trim()||nm(r.valor)>0)){
+    var tieneDatos=!!(hues.trim()||nm(r.valor)>0);
+    var seArchivo=false;
+    if(!yaExiste&&tieneDatos){
       historialesEst.push({hab:h,huesped:hues||"Sin nombre",entrada:r.fechaEntrada,salida:salida,
         noches:noches,valor:nm(r.valor),pago:r.pago||"",canal:r.canal||"",
         pasajeros:(r.pasajeros||[]).map(function(p){return Object.assign({},p);})});
+      seArchivo=true;
     }
-    reg[h]=initHab(h);
-    hubo=true;
+    // Solo se libera la habitacion si el registro quedo respaldado en el
+    // historial, si ya estaba archivado antes, o si no habia nada que perder.
+    // Antes esta linea corria SIEMPRE y podia borrar un registro sin archivarlo.
+    if(seArchivo||yaExiste||!tieneDatos){
+      reg[h]=initHab(h);
+      hubo=true;
+    }else{
+      console.warn("Archivado omitido para no perder la habitacion "+h,r);
+    }
   });
   if(hubo){guardar();renderTable();}
 }
 
-// Auto-archivar cada 5 minutos
-setInterval(function(){autoArchivarVencidos();}, 5*60*1000);
+// Archivado automatico DESACTIVADO mientras se investiga la perdida de
+// registros del 31/07/2026. Corria solo cada 5 minutos, sin supervision.
+// Para reactivarlo, quitar el comentario de la linea siguiente.
+// setInterval(function(){autoArchivarVencidos();}, 5*60*1000);
 
 // Backup automático al cerrar - una vez por día
 window.addEventListener('beforeunload', function(){
