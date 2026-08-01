@@ -543,6 +543,9 @@ function aplicarPermisos(){
 }
 
 var reg={},gastos=[],gastosDetalle=[],productos=[],carrito=[],historialVentas=[],historialesEst=[],saldoInicial={},chipsAseo=[],abierta=null,_listaHist=[],_sugerencias=[],ajustes={efectivo:0,digital:0},_renderizando=false;
+// Abonos: pagos que un huesped hace DESPUES del dia de su entrada. Van aparte
+// porque cuentan en la caja del dia en que se reciben, no en la del ingreso.
+var abonos=[];
 var comprasTienda=[];
 
 function initHab(h){return{nombre:"",canal:"",valor:"",pago:"",fechaEntrada:"",nochesTotal:1,ultimoPago:"",pasajeros:[{doc:"",apellidos:"",nombre:"",sexo:"",fnac:"",rh:"",tel:""}]};}
@@ -566,14 +569,16 @@ function _payloadCompleto(){
     hotel_estadias:historialesEst,
     hotel_saldo:saldoInicial,
     hotel_compras:comprasTienda,
-    hotel_ajustes:ajustes
+    hotel_ajustes:ajustes,
+    hotel_abonos:abonos
   };
 }
 
 var _baseConteo={};
 var _NOMBRE_CLAVE={hotel_reg:"Habitaciones",hotel_gastos:"Gastos rapidos",hotel_gastosdet:"Gastos",
   hotel_productos:"Productos",hotel_historial:"Historial de ventas",hotel_estadias:"Historial de huespedes",
-  hotel_saldo:"Saldo inicial",hotel_compras:"Compras tienda",hotel_ajustes:"Ajustes"};
+  hotel_saldo:"Saldo inicial",hotel_compras:"Compras tienda",hotel_ajustes:"Ajustes",
+  hotel_abonos:"Abonos"};
 
 function _contar(v){
   if(Array.isArray(v))return v.length;
@@ -675,6 +680,7 @@ function cargar(){
       if(d.hotel_compras)comprasTienda=d.hotel_compras;
       if(d.hotel_saldo){saldoInicial=d.hotel_saldo;CAJAS_LIST.forEach(function(c){var el=document.getElementById("si-"+c);if(el&&saldoInicial[c])el.value=saldoInicial[c];});}
       if(d.hotel_ajustes)ajustes=d.hotel_ajustes;
+      if(d.hotel_abonos&&Array.isArray(d.hotel_abonos))abonos=d.hotel_abonos;
       if(d.hotel_nom&&Array.isArray(d.hotel_nom)){d.hotel_nom.forEach(function(v){if(v)agregarNomOpcion(v);});}
       if(d.hotel_nom_turnos&&Array.isArray(d.hotel_nom_turnos)){d.hotel_nom_turnos.forEach(function(v){if(v)agregarTurnoOpcion(v);});}
       if(d.hotel_nom_gp&&Array.isArray(d.hotel_nom_gp)){d.hotel_nom_gp.forEach(function(v){if(v)agregarNomGpOpcion(v);});}
@@ -1037,7 +1043,14 @@ function renderTable(){
       var pagoPrevio=!modoAyer&&r.fechaEntrada&&r.fechaEntrada<fHoyStr&&nm(r.valor)>0;
       if(pagoPrevio){
         var partesFecha=r.fechaEntrada.split("-");var etiqFecha=partesFecha[2]+"/"+partesFecha[1];
-        html+="<td style='text-align:right'><span style='color:#aaa;font-size:13px'>"+fmt(nm(r.valor))+"</span><br><span style='color:#aaa;font-size:10px'>pag."+etiqFecha+"</span></td>";
+        // El valor va en gris porque pertenece a la caja del dia de entrada.
+        // El boton permite registrar un abono posterior sin tocar ese valor.
+        var _totAb=abonos.reduce(function(s,a){
+          return (String(a.hab)===String(h)&&(a.entrada||"")===r.fechaEntrada)?s+nm(a.monto):s;
+        },0);
+        html+="<td style='text-align:right'><span style='color:#aaa;font-size:13px'>"+fmt(nm(r.valor))+"</span><br><span style='color:#aaa;font-size:10px'>pag."+etiqFecha+"</span>";
+        if(_totAb>0)html+="<br><span style='color:#2d6a3f;font-size:10px;font-weight:bold'>+"+fmt(_totAb)+" abonado</span>";
+        html+="<br><button onclick='abrirAbono("+h+")' style='margin-top:3px;background:#e3f0ff;border:1px solid #1a6bb5;color:#1a3a6b;border-radius:4px;padding:1px 8px;font-size:10px;cursor:pointer'>+ Abono</button></td>";
       } else {
         html+="<td style='text-align:right'><input class='ci val' type='number' value='"+esc(rVis.valor)+"' placeholder='0' style='width:110px;text-align:right' oninput='updHab("+h+",\"valor\",this.value)' onblur='validarPago("+h+",this)'></td>";
       }
@@ -1598,6 +1611,52 @@ function archivarHab(h){
 
 function limpiar(h){if(!confirm("Limpiar habitacion "+h+"?"))return;reg[h]=initHab(h);abierta=null;renderTable();guardar();}
 
+function abrirAbono(h){
+  var r=reg[h];var hues=nc(h)||"";
+  var hoyF=getFechaDefault();var pf=hoyF.split("-");
+  var opc=PAGOS.filter(function(p){return p;}).map(function(p){
+    return "<option value='"+p+"'"+(p===(r.pago||"")?" selected":"")+">"+p+"</option>";
+  }).join("");
+  var abHab=abonos.filter(function(a){return String(a.hab)===String(h)&&(a.entrada||"")===r.fechaEntrada;});
+  var p="<div style='padding:16px;min-width:320px;'>";
+  p+="<h3 style='margin:0 0 12px;color:#1a3a6b;'>&#128181; Registrar abono</h3>";
+  p+="<div style='background:#f0f4ff;border-radius:6px;padding:8px 12px;margin-bottom:14px;font-size:13px;'><b>"+esc(hues)+"</b> &mdash; Hab "+h+"<br><span style='color:#666;'>Entrada "+esc(r.fechaEntrada||"")+" &middot; pagó "+fmt(nm(r.valor))+" ese día</span></div>";
+  if(abHab.length){
+    p+="<div style='background:#f6fbf7;border:1px solid #cfe6d5;border-radius:6px;padding:8px 12px;margin-bottom:12px;font-size:12px;'><b style='color:#2d6a3f;'>Abonos ya registrados</b>";
+    abHab.forEach(function(a,i){
+      p+="<div style='display:flex;justify-content:space-between;margin-top:4px;'><span>"+esc(a.fecha||"")+" &middot; "+esc(a.pago||"")+"</span><span style='font-weight:bold;'>"+fmt(nm(a.monto))+" <button onclick=\"borrarAbono('"+a.id+"',"+h+")\" style='border:none;background:none;color:#c00;cursor:pointer;font-size:12px;'>&#10005;</button></span></div>";
+    });
+    p+="</div>";
+  }
+  p+="<div style='margin-bottom:10px;'><label style='font-size:12px;font-weight:bold;color:#555;display:block;margin-bottom:4px;'>MONTO ($)</label>";
+  p+="<input type='number' id='abono-monto' placeholder='0' style='width:100%;padding:8px 10px;border:1.5px solid #1a6bb5;border-radius:6px;font-size:15px;font-weight:bold;'></div>";
+  p+="<div style='margin-bottom:12px;'><label style='font-size:12px;font-weight:bold;color:#555;display:block;margin-bottom:4px;'>FORMA DE PAGO</label>";
+  p+="<select id='abono-pago' style='width:100%;padding:8px 10px;border:1.5px solid #1a6bb5;border-radius:6px;font-size:14px;'>"+opc+"</select></div>";
+  p+="<div style='background:#fff8e1;border-radius:6px;padding:8px 10px;margin-bottom:14px;font-size:12px;color:#7a5c00;'>Se registra con fecha <b>"+pf[2]+"/"+pf[1]+"/"+pf[0]+"</b> y suma a la caja de ese día. El valor del día de entrada no se modifica.</div>";
+  p+="<div style='display:flex;gap:8px;'>";
+  p+="<button onclick='guardarAbono("+h+")' style='flex:1;padding:10px;background:#1a6bb5;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:bold;cursor:pointer;'>&#10003; Guardar abono</button>";
+  p+="<button onclick='closeOverlay()' style='padding:10px 16px;background:#eee;border:none;border-radius:6px;font-size:14px;cursor:pointer;'>Cancelar</button>";
+  p+="</div></div>";
+  showOverlay(p,false);
+}
+
+function guardarAbono(h){
+  var m=parseFloat((document.getElementById("abono-monto")||{}).value||"0");
+  var pg=((document.getElementById("abono-pago")||{}).value||"");
+  if(isNaN(m)||m<=0){alert("Ingresa un monto mayor a cero.");return;}
+  if(!pg){alert("Selecciona la forma de pago.");return;}
+  abonos.push({id:String(Date.now()),fecha:getFechaDefault(),hab:h,huesped:nc(h)||"",
+    entrada:reg[h].fechaEntrada||"",monto:m,pago:pg,
+    creadoPor:sesion.nombre||sesion.usuario||""});
+  guardar();closeOverlay();renderTable();calcTotales();
+}
+
+function borrarAbono(id,h){
+  if(!confirm("¿Eliminar este abono?"))return;
+  abonos=abonos.filter(function(a){return String(a.id)!==String(id);});
+  guardar();closeOverlay();renderTable();calcTotales();
+}
+
 function calcTotales(){
   var tots={};PAGOS.slice(1).forEach(function(p){tots[p]=0;});var totalHab=0;
   var fHoyStr2=new Date().toLocaleDateString('en-CA');
@@ -1609,6 +1668,14 @@ function calcTotales(){
   });
   var gast=gastos.reduce(function(a,g){return a+g.monto;},0);
   var fechaDia=getFechaDefault();
+  // Abonos recibidos en el dia. Entran a la caja de HOY con su forma de pago,
+  // aunque el huesped haya entrado dias atras. El valor original de aquel dia
+  // no se toca: este es un movimiento aparte.
+  abonos.forEach(function(a){
+    if((a.fecha||"")!==fechaDia)return;
+    var v=nm(a.monto);totalHab+=v;
+    if(a.pago&&tots[a.pago]!==undefined)tots[a.pago]+=v;
+  });
   var totalT=historialVentas.filter(function(v){return (v.fecha||"").startsWith(fechaDia);}).reduce(function(a,v){return a+v.total;},0);
   document.getElementById("ft-g").textContent=fmt(gast);
   document.getElementById("ft-c").textContent=fmt(totalHab-gast);
