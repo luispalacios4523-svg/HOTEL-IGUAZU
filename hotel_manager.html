@@ -904,13 +904,22 @@ function editarRegistroArchivado(idx){
   // y con opciones inexistentes en el resto del programa.
   var formasPago=PAGOS.filter(function(p){return p;});
   var opcionesFP=formasPago.map(function(f){return "<option value='"+f+"'"+(f.toLowerCase()===(e.pago||"").toLowerCase()?" selected":"")+">"+f+"</option>";}).join("");
+  // Canal y noches tambien deben poder corregirse: si un registro se archiva
+  // a medias quedan vacios y no habia forma de arreglarlos desde el historial.
+  var opcionesCanal=CANALES.map(function(c){
+    return "<option value='"+c+"'"+(c.toLowerCase()===(e.canal||"").toLowerCase()?" selected":"")+">"+(c||"— Sin canal —")+"</option>";
+  }).join("");
   var panel="<div style='padding:16px;min-width:320px;'>";
   panel+="<h3 style='margin:0 0 12px;color:#1a3a6b;'>✏️ Editar registro archivado</h3>";
   panel+="<div style='background:#f0f4ff;border-radius:6px;padding:8px 12px;margin-bottom:14px;font-size:13px;'><b>"+esc(e.huesped)+"</b> — Hab "+e.hab+" | Entrada: "+esc(e.entrada||"")+"</div>";
   panel+="<div style='margin-bottom:10px;'><label style='font-size:12px;font-weight:bold;color:#555;display:block;margin-bottom:4px;'>VALOR ($)</label>";
   panel+="<input type='number' id='edit-arch-valor' value='"+nm(e.valor)+"' style='width:100%;padding:8px 10px;border:1.5px solid #1a6bb5;border-radius:6px;font-size:15px;font-weight:bold;'></div>";
-  panel+="<div style='margin-bottom:14px;'><label style='font-size:12px;font-weight:bold;color:#555;display:block;margin-bottom:4px;'>FORMA DE PAGO</label>";
+  panel+="<div style='margin-bottom:10px;'><label style='font-size:12px;font-weight:bold;color:#555;display:block;margin-bottom:4px;'>FORMA DE PAGO</label>";
   panel+="<select id='edit-arch-pago' style='width:100%;padding:8px 10px;border:1.5px solid #1a6bb5;border-radius:6px;font-size:14px;'>"+opcionesFP+"</select></div>";
+  panel+="<div style='margin-bottom:10px;'><label style='font-size:12px;font-weight:bold;color:#555;display:block;margin-bottom:4px;'>CANAL</label>";
+  panel+="<select id='edit-arch-canal' style='width:100%;padding:8px 10px;border:1.5px solid #1a6bb5;border-radius:6px;font-size:14px;'>"+opcionesCanal+"</select></div>";
+  panel+="<div style='margin-bottom:14px;'><label style='font-size:12px;font-weight:bold;color:#555;display:block;margin-bottom:4px;'>NOCHES</label>";
+  panel+="<input type='number' min='1' id='edit-arch-noches' value='"+(parseInt(e.noches)||1)+"' style='width:100%;padding:8px 10px;border:1.5px solid #1a6bb5;border-radius:6px;font-size:14px;'></div>";
   panel+="<div style='display:flex;gap:8px;'>";
   panel+="<button onclick='guardarEdicionArchivado("+idx+")' style='flex:1;padding:10px;background:#1a6bb5;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:bold;cursor:pointer;'>✓ Guardar</button>";
   panel+="<button onclick='closeOverlay()' style='padding:10px 16px;background:#eee;border:none;border-radius:6px;font-size:14px;cursor:pointer;'>Cancelar</button>";
@@ -920,9 +929,17 @@ function editarRegistroArchivado(idx){
 function guardarEdicionArchivado(idx){
   var v=parseFloat((document.getElementById("edit-arch-valor")||{}).value||"0");
   var fp=((document.getElementById("edit-arch-pago")||{}).value||"");
+  var cn=((document.getElementById("edit-arch-canal")||{}).value||"");
+  var nch=parseInt((document.getElementById("edit-arch-noches")||{}).value||"1");
   if(isNaN(v)||v<0){alert("Valor inválido.");return;}
-  historialesEst[idx].valor=v;
-  if(fp)historialesEst[idx].pago=fp;
+  if(isNaN(nch)||nch<1){alert("Noches inválidas.");return;}
+  var e=historialesEst[idx];
+  e.valor=v;
+  if(fp)e.pago=fp;
+  e.canal=cn;
+  e.noches=nch;
+  // La salida depende de las noches: se recalcula para que no quede desfasada.
+  if(e.entrada)e.salida=calcSalida(e.entrada,nch);
   guardar();
   closeOverlay();
   openHistorial();
