@@ -1448,6 +1448,16 @@ function preguntarFechaEntrada(h){
 var _timerArchivar={};
 function updHab(h,f,v){
   reg[h][f]=v;
+  // El input de fecha MUESTRA getFechaDefault() cuando la habitacion no tiene
+  // fecha guardada, pero solo la escribe si el usuario toca ese campo. Al llenar
+  // nombre y valor sin tocarlo, el registro quedaba SIN fecha de entrada: no
+  // aparecia al filtrar el historial por dia, aunque en pantalla se viera una.
+  // Aqui se fija con la misma fecha que la fila esta mostrando.
+  if(!reg[h].fechaEntrada&&v!==""&&v!=null){
+    reg[h].fechaEntrada=getFechaDefault();
+    var _mr=document.getElementById("mr"+h);
+    if(_mr){var _fi=_mr.querySelector("input[type='date']");if(_fi)_fi.value=reg[h].fechaEntrada;}
+  }
   // Archivar cuando el usuario TERMINE de escribir, no en cada tecla.
   // Antes esta linea corria con cada caracter: al teclear el "6" de "60000"
   // el valor ya era >0 y la habitacion se archivaba con $6, perdiendo el
