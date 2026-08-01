@@ -614,12 +614,19 @@ function guardar(_extraMsgId){
       alerta.push("  • "+(_NOMBRE_CLAVE[k]||k)+": "+antes+" → "+ahora+"  (se eliminarian "+(antes-ahora)+")");
     }
   }
-  if(alerta.length){
+  // La pregunta se hace UNA sola vez por sesion. Antes reaparecia en cada
+  // pulsacion de tecla (guardar() corre a cada cambio) e impedia trabajar.
+  if(alerta.length&&!window._avisoBorradoHecho){
+    window._avisoBorradoHecho=true;
     if(!confirm("⚠️ ATENCION — Este guardado va a ELIMINAR registros:\n\n"+alerta.join("\n")+
-      "\n\nSi usted acaba de borrar eso a proposito, presione Aceptar.\n"+
-      "Si NO borro nada, presione CANCELAR: no se guardara y sus datos quedan intactos.")){
+      "\n\nSi usted acaba de borrar eso a proposito, presione Aceptar.\n\n"+
+      "Si NO borro nada, presione CANCELAR: no se guardara nada y lo mejor es\n"+
+      "recargar la pagina con Ctrl+F5 para traer la copia buena del servidor.")){
       var mC=document.getElementById("saved-msg");
-      if(mC){mC.innerHTML="⛔ Guardado cancelado — no se elimino nada";mC.style.color="#c0392b";mC.style.background="#fdecea";mC.style.padding="4px 10px";mC.style.borderRadius="6px";}
+      if(mC){
+        mC.innerHTML="⛔ Guardado detenido — nada se elimino &nbsp;<button onclick='location.reload()' style='background:#1a6bb5;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;'>Recargar</button>";
+        mC.style.color="#c0392b";mC.style.background="#fdecea";mC.style.padding="4px 10px";mC.style.borderRadius="6px";
+      }
       return;
     }
   }
