@@ -1425,10 +1425,21 @@ function preguntarFechaEntrada(h){
   if(mr){var fi=mr.querySelector("input[type='date']");if(fi)fi.value=reg[h].fechaEntrada;}
 }
 
+var _timerArchivar={};
 function updHab(h,f,v){
   reg[h][f]=v;
-  // Archivar despues de actualizar el valor para que quede el monto correcto
-  if(f==="valor"&&nm(v)>0)limpiarSiExpirada(h);
+  // Archivar cuando el usuario TERMINE de escribir, no en cada tecla.
+  // Antes esta linea corria con cada caracter: al teclear el "6" de "60000"
+  // el valor ya era >0 y la habitacion se archivaba con $6, perdiendo el
+  // resto del monto, el canal y la forma de pago.
+  if(f==="valor"&&nm(v)>0){
+    if(_timerArchivar[h])clearTimeout(_timerArchivar[h]);
+    _timerArchivar[h]=setTimeout(function(){
+      _timerArchivar[h]=null;
+      limpiarSiExpirada(h);
+      renderTable();
+    },2500);
+  }
 
   // Si se selecciona forma de pago sin valor, alertar
   if(f==="pago"&&v&&!(nm(reg[h].valor)>0)){
