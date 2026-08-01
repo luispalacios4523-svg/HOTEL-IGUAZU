@@ -92,6 +92,7 @@ td{padding:4px 6px;vertical-align:middle;}
 <div class="toolbar">
   <span class="title">&#127968; Hotel Manager</span>
   <button class="tbtn" onclick="openBusquedaGlobal()" style="background:#1a6bb5;color:#fff;border-color:#1a6bb5;font-weight:bold;">&#128269; BUSCAR</button>
+  <button class="tbtn" onclick="verificarServidor()" style="font-size:12px;padding:4px 10px;background:#e3f0ff;border-color:#1a6bb5;color:#1a3a6b;font-weight:bold;">&#128269; Verificar guardado</button>
   <button class="tbtn" onclick="exportarDatos()" style="font-size:12px;padding:4px 10px;">&#128190; Exportar datos</button>
   <label id="btn-importar" class="tbtn" style="font-size:12px;padding:4px 10px;cursor:pointer;display:none;">&#128194; Importar datos<input type="file" accept=".json" onchange="importarDatos(this)" style="display:none;"></label>
   <span style="margin-left:auto;font-size:13px;color:#666" id="fecha-hoy"></span>
@@ -665,6 +666,50 @@ function _reintentarGuardar(){
   if(m){m.innerHTML="⏳ Reintentando...";m.style.color="#7a5c00";m.style.background="";m.style.padding="";m.style.borderRadius="";}
   if(id){var em=document.getElementById(id);if(em){em.innerHTML="⏳ Reintentando...";em.style.color="#7a5c00";}}
   guardar(id);
+}
+
+// Compara lo que hay en esta pantalla contra lo guardado en el servidor.
+// Es solo lectura: no escribe ni modifica nada.
+function verificarServidor(){
+  var m=document.getElementById("saved-msg");
+  if(m){m.innerHTML="⏳ Verificando...";m.style.color="#7a5c00";m.style.background="";m.style.padding="";}
+  fetch('/api/load?t='+Date.now()).then(function(r){
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    return r.json();
+  }).then(function(d){
+    var local=_payloadCompleto();
+    var filas="",todoOk=true;
+    for(var k in local){
+      var nl=_contar(local[k]);
+      var enServidor=(d[k]!==undefined&&d[k]!==null)?d[k]:(Array.isArray(local[k])?[]:{});
+      var ns=_contar(enServidor);
+      var ok=(nl===ns);if(!ok)todoOk=false;
+      filas+="<tr style='border-top:1px solid #eee;"+(ok?"":"background:#fdecea;")+"'>"
+        +"<td style='padding:6px 8px;'>"+(_NOMBRE_CLAVE[k]||k)+"</td>"
+        +"<td style='padding:6px 8px;text-align:right;'>"+nl+"</td>"
+        +"<td style='padding:6px 8px;text-align:right;'>"+ns+"</td>"
+        +"<td style='padding:6px 8px;text-align:center;'>"+(ok?"✅":"❌")+"</td></tr>";
+    }
+    var html="<div style='padding:16px;min-width:430px;'>";
+    html+="<h3 style='margin:0 0 4px;color:#1a3a6b;'>&#128269; Verificación con el servidor</h3>";
+    html+="<div style='font-size:12px;color:#666;margin-bottom:12px;'>Compara esta pantalla con lo que está guardado en Supabase.</div>";
+    if(todoOk){
+      html+="<div style='background:#d4edda;border:1px solid #5a9a6a;color:#2d6a3f;border-radius:6px;padding:10px 12px;margin-bottom:12px;font-weight:bold;'>✅ Todo coincide. Sus datos están guardados en el servidor.</div>";
+    }else{
+      html+="<div style='background:#fdecea;border:1px solid #c0392b;color:#c0392b;border-radius:6px;padding:10px 12px;margin-bottom:12px;font-weight:bold;'>❌ Hay diferencias. Lo marcado en rojo no está igual en el servidor.<div style='font-weight:normal;font-size:12px;margin-top:6px;'>Si &quot;En pantalla&quot; es mayor, falta guardar. Si es menor, esta pantalla está desactualizada: recargue con F5.</div></div>";
+    }
+    html+="<table style='width:100%;border-collapse:collapse;font-size:13px;'><thead><tr style='background:#f5f5f5;'>"
+      +"<th style='padding:6px 8px;text-align:left;'>Sección</th>"
+      +"<th style='padding:6px 8px;text-align:right;'>En pantalla</th>"
+      +"<th style='padding:6px 8px;text-align:right;'>En servidor</th>"
+      +"<th style='padding:6px 8px;'></th></tr></thead><tbody>"+filas+"</tbody></table>";
+    html+="<div style='margin-top:14px;text-align:right;'><button onclick='closeOverlay()' style='padding:8px 16px;background:#1a6bb5;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;'>Cerrar</button></div></div>";
+    if(m)m.innerHTML="";
+    showOverlay(html,false);
+  }).catch(function(e){
+    console.error("Error verificando:",e);
+    if(m){m.innerHTML="❌ No se pudo consultar el servidor";m.style.color="#c0392b";m.style.background="#fdecea";m.style.padding="4px 10px";m.style.borderRadius="6px";}
+  });
 }
 
 function cargar(){
