@@ -784,7 +784,18 @@ function limpiarHistorialVentas(){
 // HISTORIAL
 function openHistorial(){
   var activos=HABS.filter(function(h){return nc(h).trim();}).map(function(h){return{hab:h,huesped:nc(h),entrada:reg[h].fechaEntrada||"",estado:"Activo",estadoBg:"#d4edda",estadoCol:"#2d6a3f",noches:reg[h].nochesTotal||1,valor:nm(reg[h].valor),pago:reg[h].pago||"",canal:reg[h].canal||"",pasajeros:reg[h].pasajeros||[],activo:true,idxHist:-1};});
-  _listaHist=activos.concat(historialesEst.map(function(e,i){return Object.assign({},e,{estado:"Archivado",estadoBg:"#f0f0f0",estadoCol:"#888",activo:false,idxHist:i});}));
+  // Un mismo huesped puede estar a la vez en la habitacion (Activo) y en el
+  // historial (Archivado): desde que "Cargar ayer" dejo de borrar del historial
+  // —para no perder registros— ambas copias coexisten. Se muestra solo la
+  // activa, o la fila y el total del dia saldrian duplicados.
+  var _claveAct={};
+  activos.forEach(function(a){
+    _claveAct[a.hab+"|"+(a.entrada||"")+"|"+_normNombre(a.huesped||"")]=true;
+  });
+  _listaHist=activos.concat(
+    historialesEst.map(function(e,i){return Object.assign({},e,{estado:"Archivado",estadoBg:"#f0f0f0",estadoCol:"#888",activo:false,idxHist:i});})
+      .filter(function(e){return !_claveAct[e.hab+"|"+(e.entrada||"")+"|"+_normNombre(e.huesped||"")];})
+  );
   var hoy=new Date().toISOString().split("T")[0];
   var mes=hoy.slice(0,7);
   var html="<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;'>";
