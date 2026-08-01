@@ -899,7 +899,10 @@ function pintarHistorial(lista){
 function editarRegistroArchivado(idx){
   if(sesion.rol!=="admin"){alert("Solo el administrador puede editar.");return;}
   var e=historialesEst[idx];if(!e){alert("No encontrado.");return;}
-  var formasPago=["Efectivo","Nequi","Transferencia","Tarjeta","Otro"];
+  // Se usa la lista global PAGOS, la misma de la tabla de ventas. Antes habia
+  // aqui una lista escrita a mano sin Bancolombia, Bold, Ayenda ni Daviplata,
+  // y con opciones inexistentes en el resto del programa.
+  var formasPago=PAGOS.filter(function(p){return p;});
   var opcionesFP=formasPago.map(function(f){return "<option value='"+f+"'"+(f.toLowerCase()===(e.pago||"").toLowerCase()?" selected":"")+">"+f+"</option>";}).join("");
   var panel="<div style='padding:16px;min-width:320px;'>";
   panel+="<h3 style='margin:0 0 12px;color:#1a3a6b;'>✏️ Editar registro archivado</h3>";
