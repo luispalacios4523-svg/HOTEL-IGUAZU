@@ -49,6 +49,26 @@ if DATABASE_URL:
                 result[key] = value
         return result
 
+    def db_get_one(key, default=None):
+        # Trae UNA sola clave. /api/efectivo usaba db_load_all(), que descarga
+        # toda la base (~3.6 MB) para leer un unico numero. Llamado cada 30
+        # segundos desde cada pestana abierta, eso consumia decenas de GB de
+        # transferencia al mes y agoto la cuota de Supabase.
+        conn = get_db()
+        try:
+            rows = conn.run('SELECT value FROM store WHERE key = :key', key=key)
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+        if rows:
+            try:
+                return json.loads(rows[0][0])
+            except Exception:
+                return rows[0][0]
+        return default
+
     def db_save(data):
         # Todo o nada: si algo falla a mitad, Postgres descarta los cambios
         # y los datos quedan como estaban. Nunca se guarda "una parte".
@@ -99,6 +119,17 @@ else:
                 result[row['key']] = row['value']
         return result
 
+    def db_get_one(key, default=None):
+        conn = get_db()
+        row = conn.execute('SELECT value FROM store WHERE key = ?', (key,)).fetchone()
+        conn.close()
+        if row:
+            try:
+                return json.loads(row['value'])
+            except Exception:
+                return row['value']
+        return default
+
     def db_save(data):
         conn = get_db()
         for key, value in data.items():
@@ -133,7 +164,10 @@ def index():
 
 @app.route('/api/efectivo')
 def efectivo():
-    val = db_load_all().get('efectivo_actual', 0)
+    # Consulta SOLO esta clave. Antes usaba db_load_all(), que traia la base
+    # completa (~3.6 MB) para devolver un numero. Se llama cada 30 segundos
+    # desde cada pestana abierta de las tres aplicaciones.
+    val = db_get_one('efectivo_actual', 0)
     r = jsonify({'efectivo': val})
     return _cors(r)
 
