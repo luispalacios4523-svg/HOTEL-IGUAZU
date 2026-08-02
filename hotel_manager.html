@@ -1085,7 +1085,11 @@ function renderTable(){
       // NOMBRE
       html+="<td id='nc"+h+"'><span style='padding:4px 6px;font-size:14px'>"+(okVis?esc(nombreVis):"<span style='color:#aaa'>Nombre cliente</span>")+"</span></td>";
       // VALOR
-      var pagoPrevio=!modoAyer&&r.fechaEntrada&&r.fechaEntrada<fHoyStr&&nm(r.valor)>0;
+      // El pago pertenece a un dia ANTERIOR al que se esta trabajando: hoy en
+      // modo normal, ayer en modo ayer. Antes solo se evaluaba en modo hoy, y
+      // en modo ayer el valor salia editable y contaba en el total de ese dia
+      // aunque el huesped hubiera pagado dias atras.
+      var pagoPrevio=r.fechaEntrada&&r.fechaEntrada<getFechaDefault()&&nm(r.valor)>0;
       if(pagoPrevio){
         var partesFecha=r.fechaEntrada.split("-");var etiqFecha=partesFecha[2]+"/"+partesFecha[1];
         // El valor va en gris porque pertenece a la caja del dia de entrada.
@@ -1704,11 +1708,14 @@ function borrarAbono(id,h){
 
 function calcTotales(){
   var tots={};PAGOS.slice(1).forEach(function(p){tots[p]=0;});var totalHab=0;
-  var fHoyStr2=new Date().toLocaleDateString('en-CA');
+  // Fecha del dia que se esta trabajando: hoy, o ayer si esta en modo ayer.
+  var fHoyStr2=getFechaDefault();
   HABS.forEach(function(h){
     var r=reg[h];
-    // En modo hoy, excluir habitaciones con estadía expirada o con pago de día anterior
-    if(!modoAyer&&r.fechaEntrada&&r.fechaEntrada<fHoyStr2)return;
+    // Excluir las habitaciones pagadas en un dia anterior al que se trabaja.
+    // Antes esto solo se aplicaba en modo hoy: en modo ayer, una habitacion
+    // pagada dias atras sumaba su valor al total de ayer y lo inflaba.
+    if(r.fechaEntrada&&r.fechaEntrada<fHoyStr2)return;
     var v=nm(r.valor);totalHab+=v;if(r.pago&&tots[r.pago]!==undefined)tots[r.pago]+=v;
   });
   var gast=gastos.reduce(function(a,g){return a+g.monto;},0);
