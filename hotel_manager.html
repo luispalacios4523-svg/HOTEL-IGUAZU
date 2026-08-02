@@ -712,6 +712,26 @@ function verificarServidor(){
   });
 }
 
+// Una habitacion esta vacia si no tiene huesped ni valor.
+function _habVacia(h){
+  var r=reg[h];if(!r)return true;
+  var p0=(r.pasajeros&&r.pasajeros[0])?r.pasajeros[0]:{};
+  var conNombre=!!((p0.apellidos||"").trim()||(p0.nombre||"").trim()||(r.nombre||"").trim());
+  return !conNombre&&!(nm(r.valor)>0);
+}
+
+// Una habitacion vacia no debe conservar la fecha de un huesped anterior.
+// Si la conserva, aparece con esa fecha vieja en la tabla y —peor— un huesped
+// nuevo escrito ahi se guardaria con el dia equivocado, porque updHab solo
+// fija la fecha cuando esta vacia. Se limpia al cargar, en ambos modos.
+function _limpiarFechasHuerfanas(){
+  try{
+    HABS.forEach(function(h){
+      if(reg[h]&&reg[h].fechaEntrada&&_habVacia(h))reg[h].fechaEntrada="";
+    });
+  }catch(e){console.error("Error limpiando fechas huerfanas:",e);}
+}
+
 function cargar(){
   return fetch('/api/load').then(function(res){return res.json();}).then(function(d){
     try{
@@ -731,6 +751,7 @@ function cargar(){
       if(d.hotel_nom_gp&&Array.isArray(d.hotel_nom_gp)){d.hotel_nom_gp.forEach(function(v){if(v)agregarNomGpOpcion(v);});}
       if(d.hotel_cats_custom&&typeof d.hotel_cats_custom==="object"){CATS_CUSTOM=d.hotel_cats_custom;reconstruirCats();}
     }catch(e){console.error("Error cargando:",e);}
+    _limpiarFechasHuerfanas();
     _datosListos=true;
     // La referencia queda fijada con lo que el servidor acaba de entregar.
     _fijarBase();
@@ -2527,6 +2548,9 @@ function desarchivarAyer(){
     });
     if(cambioSalida)guardar();
   }
+  // Al alternar de modo, las habitaciones vacias deben mostrar la fecha del
+  // dia que se pasa a trabajar, no la de un huesped anterior.
+  _limpiarFechasHuerfanas();
   renderTable();
 }
 // ── FIN CARGAR AYER ──────────────────────────────────────────────────────────
