@@ -2498,13 +2498,20 @@ function desarchivarAyer(){
     var ayerFmt=d.toLocaleDateString("es-CO",{weekday:"long",day:"numeric",month:"long"});
     if(btn){btn.style.background="#f5a623";btn.style.borderColor="#d4881a";btn.style.color="#fff";btn.textContent="📅 Ver hoy";}
     if(banner){banner.style.display="flex";banner.querySelector("span").textContent="MODO AYER — Ingresando pasajeros del "+ayerFmt+". Las fechas se ponen automáticamente en ese día.";}
-    // Recuperar huéspedes de ayer que ya fueron archivados
-    // Al cargarlos en reg[], se eliminan del historial para evitar duplicados.
-    // Cuando el usuario presione "Ver hoy" volverán al historial con el valor correcto.
+    // Recuperar en las habitaciones a los huespedes que estaban alojados ayer.
+    // Se copian del historial SIN borrarlos de alli: siguen existiendo en las
+    // dos partes y openHistorial() descarta la copia duplicada al listar.
     var recuperados=0;
     var indicesRecuperados=[];
     historialesEst.forEach(function(e,idx){
-      if((e.entrada||"")!==fAyer)return;
+      // Traer a quien ESTABA ALOJADO ayer, no solo a quien entro ayer. Un
+      // huesped que entro el 30 por 3 noches seguia ocupando la habitacion
+      // ayer, y antes este filtro lo dejaba fuera: la habitacion aparecia
+      // libre en un dia en que estaba ocupada.
+      var _ent=e.entrada||"";
+      if(!_ent)return;
+      var _sal=e.salida||calcSalida(_ent,e.noches||1);
+      if(!(_ent<=fAyer&&_sal>fAyer))return;
       var h=e.hab;
       if(!HABS.includes(h))return;
       if(nc(h).trim()||nm(reg[h].valor)>0)return;
