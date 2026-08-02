@@ -2350,6 +2350,73 @@ function autoArchivarVencidos(){
 // habitacion despues de confirmar que quedo respaldada en el historial.
 setInterval(function(){autoArchivarVencidos();}, 5*60*1000);
 
+// ── CIERRE POR INACTIVIDAD ───────────────────────────────────────────────────
+// La app baja los datos una sola vez al entrar. Si la sesion queda abierta
+// horas, se trabaja sobre una copia vieja y lo que se escriba puede pisar algo
+// mas reciente. Tras 30 minutos sin actividad se recarga para traer lo ultimo.
+var _INACTIVIDAD_MIN=30;
+var _ultimaActividad=Date.now();
+var _avisoInactividad=null,_cuentaRegresiva=null;
+
+["mousemove","mousedown","keydown","touchstart","scroll","click"].forEach(function(ev){
+  document.addEventListener(ev,function(){_ultimaActividad=Date.now();},true);
+});
+
+// Hay cambios locales que el servidor todavia no confirmo.
+function _hayPendientes(){
+  if(!_baseEnviado)return false;
+  var c=_payloadCompleto();
+  for(var k in c){if(_baseEnviado[k]!==JSON.stringify(c[k]))return true;}
+  return false;
+}
+
+function _seguirTrabajando(){
+  if(_cuentaRegresiva){clearInterval(_cuentaRegresiva);_cuentaRegresiva=null;}
+  if(_avisoInactividad&&_avisoInactividad.parentNode)_avisoInactividad.parentNode.removeChild(_avisoInactividad);
+  _avisoInactividad=null;_ultimaActividad=Date.now();
+}
+
+function _recargarPorInactividad(){
+  // Nunca recargar con cambios sin confirmar: se perderian sin dejar rastro.
+  if(_hayPendientes()){
+    var caja=_avisoInactividad?_avisoInactividad.firstChild:null;
+    if(caja){
+      caja.innerHTML="<div style='font-size:34px;margin-bottom:6px;'>&#9888;</div>"
+        +"<h3 style='margin:0 0 8px;color:#c0392b;'>Hay datos sin guardar</h3>"
+        +"<div style='font-size:14px;color:#555;margin-bottom:16px;'>No se recargó la página para no perderlos. Revise el aviso de la barra superior y use <b>Reintentar</b> si está en rojo.</div>"
+        +"<button onclick='_seguirTrabajando()' style='padding:12px 28px;background:#1a6bb5;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:bold;cursor:pointer;'>Entendido</button>";
+    }
+    return;
+  }
+  location.reload();
+}
+
+function _mostrarAvisoInactividad(){
+  var seg=60;
+  var d=document.createElement("div");
+  d.style.cssText="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:99999;";
+  d.innerHTML="<div style='background:#fff;border-radius:12px;padding:24px 28px;max-width:420px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.3);'>"
+    +"<div style='font-size:34px;margin-bottom:6px;'>&#9200;</div>"
+    +"<h3 style='margin:0 0 8px;color:#1a3a6b;'>Sesión inactiva</h3>"
+    +"<div style='font-size:14px;color:#555;margin-bottom:8px;'>Lleva "+_INACTIVIDAD_MIN+" minutos sin actividad. La página se recargará para traer los datos actualizados del servidor.</div>"
+    +"<div style='font-size:13px;color:#888;margin-bottom:16px;'>Recargando en <b id='inact-seg' style='color:#c0392b;font-size:18px;'>60</b> segundos</div>"
+    +"<button onclick='_seguirTrabajando()' style='padding:12px 28px;background:#1a6bb5;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:bold;cursor:pointer;'>Sigo aquí</button>"
+    +"</div>";
+  document.body.appendChild(d);
+  _avisoInactividad=d;
+  _cuentaRegresiva=setInterval(function(){
+    seg--;
+    var s=document.getElementById("inact-seg");
+    if(s)s.textContent=seg;
+    if(seg<=0){clearInterval(_cuentaRegresiva);_cuentaRegresiva=null;_recargarPorInactividad();}
+  },1000);
+}
+
+setInterval(function(){
+  if(!_datosListos||_avisoInactividad)return;
+  if((Date.now()-_ultimaActividad)/60000>=_INACTIVIDAD_MIN)_mostrarAvisoInactividad();
+},30000);
+
 // Backup automático al cerrar - una vez por día
 window.addEventListener('beforeunload', function(){
   if(!_datosListos)return;
