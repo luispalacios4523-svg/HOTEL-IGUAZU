@@ -1026,7 +1026,7 @@ function eliminarRegistroArchivado(idx){
   if(sesion.rol!=="admin"){alert("Solo el administrador puede eliminar.");return;}
   var e=historialesEst[idx];if(!e){alert("No encontrado.");return;}
   var iguales=historialesEst.filter(function(x){
-    return x.hab===e.hab&&x.entrada===e.entrada&&_normNombre(x.huesped)===_normNombre(e.huesped);
+    return String(x.hab)===String(e.hab)&&x.entrada===e.entrada&&_normNombre(x.huesped)===_normNombre(e.huesped);
   }).length;
   var aviso="¿ELIMINAR este registro del historial?\n\n"
     +(e.huesped||"Sin nombre")+"\nHab "+e.hab+"  ·  Entrada "+(e.entrada||"")+"\nValor "+fmt(nm(e.valor))+"  ·  "+(e.pago||"")+"\n\n";
@@ -1290,7 +1290,10 @@ function _pushHistorial(h,r,hues,salida,noches){
   var idx=-1;
   for(var i=0;i<historialesEst.length;i++){
     var e=historialesEst[i];
-    if(e.hab===h&&e.entrada===r.fechaEntrada&&_normNombre(e.huesped)===huesNorm){idx=i;break;}
+    // String() en la habitacion: en unos registros esta guardada como numero
+    // y en otros como texto (los importados). Con === estricto "206" y 206 no
+    // coinciden, no se encontraba la entrada existente y se creaba un duplicado.
+    if(String(e.hab)===String(h)&&e.entrada===r.fechaEntrada&&_normNombre(e.huesped)===huesNorm){idx=i;break;}
   }
   if(idx===-1){
     if(hues.trim()||val>0){
@@ -1725,7 +1728,7 @@ function archivarHab(h){
   // Salida real: el huesped se fue antes de lo previsto.
   for(var _i=0;_i<historialesEst.length;_i++){
     var _e=historialesEst[_i];
-    if(_e.hab===h&&_e.entrada===r.fechaEntrada&&_normNombre(_e.huesped)===_normNombre(nombre)){
+    if(String(_e.hab)===String(h)&&_e.entrada===r.fechaEntrada&&_normNombre(_e.huesped)===_normNombre(nombre)){
       _e.salida=_hoyStr;break;
     }
   }
@@ -2419,7 +2422,7 @@ function autoArchivarVencidos(){
     // efectivamente en el historial. Antes se liberaba siempre, aunque el
     // archivado no se hubiera ejecutado, y el registro desaparecia.
     var respaldado=!tieneDatos||historialesEst.some(function(e){
-      return e.hab===h&&e.entrada===r.fechaEntrada;
+      return String(e.hab)===String(h)&&e.entrada===r.fechaEntrada;
     });
     if(respaldado){
       reg[h]=initHab(h);
