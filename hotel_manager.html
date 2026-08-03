@@ -720,6 +720,16 @@ function _habVacia(h){
   return !conNombre&&!(nm(r.valor)>0);
 }
 
+// La estadia ya termino y la tabla presenta la habitacion como libre (misma
+// condicion que 'expirada' en renderTable). No aplica en modo ayer, donde se
+// esta reconstruyendo un dia en que la habitacion si estaba ocupada.
+function _estadiaTerminada(h){
+  if(modoAyer)return false;
+  var r=reg[h];if(!r||!r.fechaEntrada)return false;
+  var hoy=new Date().toLocaleDateString('en-CA');
+  return r.fechaEntrada<hoy&&calcSalida(r.fechaEntrada,parseInt(r.nochesTotal)||1)<=hoy;
+}
+
 // Una habitacion vacia no debe conservar la fecha de un huesped anterior.
 // Si la conserva, aparece con esa fecha vieja en la tabla y —peor— un huesped
 // nuevo escrito ahi se guardaria con el dia equivocado, porque updHab solo
@@ -1110,7 +1120,11 @@ function renderTable(){
       // modo normal, ayer en modo ayer. Antes solo se evaluaba en modo hoy, y
       // en modo ayer el valor salia editable y contaba en el total de ese dia
       // aunque el huesped hubiera pagado dias atras.
-      var pagoPrevio=r.fechaEntrada&&r.fechaEntrada<getFechaDefault()&&nm(r.valor)>0;
+      // Si la estadia ya termino (expirada) la habitacion se presenta libre:
+      // se oculta el nombre y se vacia rVis, asi que tampoco debe quedar el
+      // valor en gris. Antes se calculaba sobre r y el monto seguia visible
+      // en una habitacion que ya figuraba sin huesped.
+      var pagoPrevio=!expirada&&r.fechaEntrada&&r.fechaEntrada<getFechaDefault()&&nm(r.valor)>0;
       if(pagoPrevio){
         var partesFecha=r.fechaEntrada.split("-");var etiqFecha=partesFecha[2]+"/"+partesFecha[1];
         // El valor va en gris porque pertenece a la caja del dia de entrada.
@@ -1541,6 +1555,20 @@ function preguntarFechaEntrada(h){
 
 var _timerArchivar={};
 function updHab(h,f,v){
+  // Si la estadia anterior ya termino, la tabla muestra la habitacion libre
+  // (sin nombre ni valor), pero reg[h] todavia conserva al huesped que se fue
+  // hasta que el archivado del mediodia la libere. Escribir ahi mezclaba los
+  // dos huespedes: el dato nuevo con el nombre y los pasajeros del anterior.
+  // Se archiva y se libera primero. _pushHistorial actualiza la entrada ya
+  // existente en vez de duplicarla, asi que esto no crea registros de mas.
+  if(_estadiaTerminada(h)&&v!==""&&v!=null){
+    var _ra=reg[h];
+    var _p0=(_ra.pasajeros&&_ra.pasajeros[0])?_ra.pasajeros[0]:{};
+    var _hu=[_p0.apellidos,_p0.nombre].filter(function(x){return x&&x.trim();}).join(" ")||_ra.nombre||"";
+    var _nn=parseInt(_ra.nochesTotal)||1;
+    if(_hu.trim()||nm(_ra.valor)>0)_pushHistorial(h,_ra,_hu,calcSalida(_ra.fechaEntrada,_nn),_nn);
+    reg[h]=initHab(h);
+  }
   reg[h][f]=v;
   // El input de fecha MUESTRA getFechaDefault() cuando la habitacion no tiene
   // fecha guardada, pero solo la escribe si el usuario toca ese campo. Al llenar
