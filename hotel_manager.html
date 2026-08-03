@@ -980,6 +980,7 @@ function pintarHistorial(lista){
     if(!e.activo&&e.idxHist>=0){
       html+="<button onclick='reintegrarDesdeHistorial("+e.idxHist+")' style='padding:4px 10px;background:#fff3cd;border:1px solid #c9a227;border-radius:4px;cursor:pointer;font-size:12px;color:#7a5c00;margin-right:4px;'>Reintegrar</button>";
       if(sesion.rol==="admin")html+="<button onclick='editarRegistroArchivado("+e.idxHist+")' style='padding:4px 10px;background:#e3f0ff;border:1px solid #1a6bb5;border-radius:4px;cursor:pointer;font-size:12px;color:#1a3a6b;'>✏️ Editar</button>";
+      if(sesion.rol==="admin")html+="<button onclick='eliminarRegistroArchivado("+e.idxHist+")' title='Eliminar registro duplicado o erroneo' style='padding:4px 8px;background:#fdecea;border:1px solid #c0392b;border-radius:4px;cursor:pointer;font-size:12px;color:#c0392b;margin-left:4px;'>&#10005;</button>";
     }
     html+="</td></tr>";
   });
@@ -1019,6 +1020,25 @@ function editarRegistroArchivado(idx){
   panel+="</div></div>";
   showOverlay(panel,false);
 }
+// Eliminar un registro archivado. Existe para poder quitar duplicados o
+// registros erroneos, que antes no habia forma de borrar desde el historial.
+function eliminarRegistroArchivado(idx){
+  if(sesion.rol!=="admin"){alert("Solo el administrador puede eliminar.");return;}
+  var e=historialesEst[idx];if(!e){alert("No encontrado.");return;}
+  var iguales=historialesEst.filter(function(x){
+    return x.hab===e.hab&&x.entrada===e.entrada&&_normNombre(x.huesped)===_normNombre(e.huesped);
+  }).length;
+  var aviso="¿ELIMINAR este registro del historial?\n\n"
+    +(e.huesped||"Sin nombre")+"\nHab "+e.hab+"  ·  Entrada "+(e.entrada||"")+"\nValor "+fmt(nm(e.valor))+"  ·  "+(e.pago||"")+"\n\n";
+  aviso+=(iguales>1)
+    ? "Hay "+iguales+" copias iguales de este registro. Se eliminará solo esta."
+    : "⚠️ Es el ÚNICO registro de este huésped. Si lo elimina, se pierde.";
+  aviso+="\n\nEsta acción no se puede deshacer.";
+  if(!confirm(aviso))return;
+  historialesEst.splice(idx,1);
+  guardar();openHistorial();
+}
+
 function guardarEdicionArchivado(idx){
   var v=parseFloat((document.getElementById("edit-arch-valor")||{}).value||"0");
   var fp=((document.getElementById("edit-arch-pago")||{}).value||"");
@@ -1692,14 +1712,23 @@ function archivarHab(h){
   var nombre=nc(h)||r.nombre||"Sin nombre";
   var valor=nm(r.valor);
   if(!confirm("Archivar hab "+h+" — "+nombre+"?\nValor: $"+Math.round(valor).toLocaleString("es-CO")+"\n\nEl huésped salió antes de lo previsto."))return;
-  historialesEst.push({
-    hab:h,huesped:nombre,
-    entrada:r.fechaEntrada||new Date().toLocaleDateString("en-CA"),
-    salida:new Date().toLocaleDateString("en-CA"),
-    noches:nm(r.nochesTotal)||1,
-    valor:valor,pago:r.pago||"",canal:r.canal||"",
-    pasajeros:r.pasajeros?r.pasajeros.slice():[]
-  });
+  var _hoyStr=new Date().toLocaleDateString("en-CA");
+  if(!r.fechaEntrada)r.fechaEntrada=_hoyStr;
+  var _nn=nm(r.nochesTotal)||1;
+  // Antes se hacia historialesEst.push() directo, sin comprobar si el huesped
+  // ya estaba en el historial: al archivar una habitacion recuperada por
+  // "Cargar ayer" —que desde el 31/07 ya no se borra del historial— quedaban
+  // dos copias identicas y el dia se contaba doble.
+  // _pushHistorial localiza la entrada por hab + entrada + huesped y la
+  // actualiza en vez de duplicarla.
+  _pushHistorial(h,r,nombre,_hoyStr,_nn);
+  // Salida real: el huesped se fue antes de lo previsto.
+  for(var _i=0;_i<historialesEst.length;_i++){
+    var _e=historialesEst[_i];
+    if(_e.hab===h&&_e.entrada===r.fechaEntrada&&_normNombre(_e.huesped)===_normNombre(nombre)){
+      _e.salida=_hoyStr;break;
+    }
+  }
   reg[h]=initHab(h);
   guardar();renderTable();
   var msg=document.getElementById("saved-msg");
