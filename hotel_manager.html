@@ -874,10 +874,21 @@ function openHistorial(){
   activos.forEach(function(a){
     _claveAct[a.hab+"|"+(a.entrada||"")+"|"+_normNombre(a.huesped||"")]=true;
   });
+  // Los abonos entran como una fila propia, fechada el dia en que se
+  // recibieron. Se usa esa fecha en el campo 'entrada' porque es la columna
+  // por la que filtra la busqueda: asi el abono aparece en el dia que
+  // corresponde y suma al total de ese dia, no al del ingreso del huesped.
+  var _filasAbonos=abonos.map(function(a){
+    return {hab:a.hab,huesped:a.huesped||"",entrada:a.fecha||"",
+      estado:"Abono",estadoBg:"#e3f0ff",estadoCol:"#1a3a6b",
+      noches:"",valor:nm(a.monto),pago:a.pago||"",canal:"",
+      pasajeros:[],activo:false,idxHist:-1,
+      esAbono:true,idAbono:a.id,entradaHuesped:a.entrada||""};
+  });
   _listaHist=activos.concat(
     historialesEst.map(function(e,i){return Object.assign({},e,{estado:"Archivado",estadoBg:"#f0f0f0",estadoCol:"#888",activo:false,idxHist:i});})
       .filter(function(e){return !_claveAct[e.hab+"|"+(e.entrada||"")+"|"+_normNombre(e.huesped||"")];})
-  );
+  ).concat(_filasAbonos);
   var hoy=new Date().toISOString().split("T")[0];
   var mes=hoy.slice(0,7);
   var html="<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;'>";
@@ -981,6 +992,11 @@ function pintarHistorial(lista){
       html+="<button onclick='reintegrarDesdeHistorial("+e.idxHist+")' style='padding:4px 10px;background:#fff3cd;border:1px solid #c9a227;border-radius:4px;cursor:pointer;font-size:12px;color:#7a5c00;margin-right:4px;'>Reintegrar</button>";
       if(sesion.rol==="admin")html+="<button onclick='editarRegistroArchivado("+e.idxHist+")' style='padding:4px 10px;background:#e3f0ff;border:1px solid #1a6bb5;border-radius:4px;cursor:pointer;font-size:12px;color:#1a3a6b;'>✏️ Editar</button>";
       if(sesion.rol==="admin")html+="<button onclick='eliminarRegistroArchivado("+e.idxHist+")' title='Eliminar registro duplicado o erroneo' style='padding:4px 8px;background:#fdecea;border:1px solid #c0392b;border-radius:4px;cursor:pointer;font-size:12px;color:#c0392b;margin-left:4px;'>&#10005;</button>";
+    }
+    // El abono se corrige desde aqui: una vez archivado el huesped la
+    // habitacion queda libre y su boton "+ Abono" ya no existe.
+    if(e.esAbono&&sesion.rol==="admin"){
+      html+="<button onclick=\"eliminarAbonoHist('"+e.idAbono+"')\" title='Eliminar abono' style='padding:4px 8px;background:#fdecea;border:1px solid #c0392b;border-radius:4px;cursor:pointer;font-size:12px;color:#c0392b;'>&#10005;</button>";
     }
     html+="</td></tr>";
   });
@@ -1779,6 +1795,20 @@ function guardarAbono(h){
     entrada:reg[h].fechaEntrada||"",monto:m,pago:pg,
     creadoPor:sesion.nombre||sesion.usuario||""});
   guardar();closeOverlay();renderTable();calcTotales();
+}
+
+// Eliminar un abono desde el historial, donde puede aparecer aunque el
+// huesped ya este archivado y su habitacion libre.
+function eliminarAbonoHist(id){
+  if(sesion.rol!=="admin"){alert("Solo el administrador puede eliminar.");return;}
+  var a=null;
+  for(var i=0;i<abonos.length;i++){if(String(abonos[i].id)===String(id)){a=abonos[i];break;}}
+  if(!a){alert("Abono no encontrado.");return;}
+  if(!confirm("¿ELIMINAR este abono?\n\n"+(a.huesped||"Sin nombre")+"  ·  Hab "+a.hab+"\n"
+    +fmt(nm(a.monto))+"  ·  "+(a.pago||"")+"\nRecibido el "+(a.fecha||"")
+    +"\n\nSe descontará de la caja de ese día.\nEsta acción no se puede deshacer."))return;
+  abonos=abonos.filter(function(x){return String(x.id)!==String(id);});
+  guardar();openHistorial();calcTotales();
 }
 
 function borrarAbono(id,h){
