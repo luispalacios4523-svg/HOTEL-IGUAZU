@@ -996,6 +996,7 @@ function pintarHistorial(lista){
     // El abono se corrige desde aqui: una vez archivado el huesped la
     // habitacion queda libre y su boton "+ Abono" ya no existe.
     if(e.esAbono&&sesion.rol==="admin"){
+      html+="<button onclick=\"editarAbono('"+e.idAbono+"')\" style='padding:4px 10px;background:#e3f0ff;border:1px solid #1a6bb5;border-radius:4px;cursor:pointer;font-size:12px;color:#1a3a6b;margin-right:4px;'>✏️ Editar</button>";
       html+="<button onclick=\"eliminarAbonoHist('"+e.idAbono+"')\" title='Eliminar abono' style='padding:4px 8px;background:#fdecea;border:1px solid #c0392b;border-radius:4px;cursor:pointer;font-size:12px;color:#c0392b;'>&#10005;</button>";
     }
     html+="</td></tr>";
@@ -1795,6 +1796,51 @@ function guardarAbono(h){
     entrada:reg[h].fechaEntrada||"",monto:m,pago:pg,
     creadoPor:sesion.nombre||sesion.usuario||""});
   guardar();closeOverlay();renderTable();calcTotales();
+}
+
+// Editar un abono desde el historial. La fecha es editable a proposito: si se
+// registro en el dia equivocado, cambiarla lo mueve a la caja del dia correcto
+// sin tener que borrarlo y volver a crearlo.
+function editarAbono(id){
+  if(sesion.rol!=="admin"){alert("Solo el administrador puede editar.");return;}
+  var a=null;
+  for(var i=0;i<abonos.length;i++){if(String(abonos[i].id)===String(id)){a=abonos[i];break;}}
+  if(!a){alert("Abono no encontrado.");return;}
+  var opc=PAGOS.filter(function(p){return p;}).map(function(p){
+    return "<option value='"+p+"'"+(p===(a.pago||"")?" selected":"")+">"+p+"</option>";
+  }).join("");
+  var p="<div style='padding:16px;min-width:330px;'>";
+  p+="<h3 style='margin:0 0 12px;color:#1a3a6b;'>&#9999;&#65039; Editar abono</h3>";
+  p+="<div style='background:#f0f4ff;border-radius:6px;padding:8px 12px;margin-bottom:14px;font-size:13px;'><b>"+esc(a.huesped||"Sin nombre")+"</b> &mdash; Hab "+a.hab+"<br><span style='color:#666;'>Entrada del huésped: "+esc(a.entrada||"")+"</span></div>";
+  p+="<div style='margin-bottom:10px;'><label style='font-size:12px;font-weight:bold;color:#555;display:block;margin-bottom:4px;'>MONTO ($)</label>";
+  p+="<input type='number' id='ab-ed-monto' value='"+nm(a.monto)+"' style='width:100%;padding:8px 10px;border:1.5px solid #1a6bb5;border-radius:6px;font-size:15px;font-weight:bold;'></div>";
+  p+="<div style='margin-bottom:10px;'><label style='font-size:12px;font-weight:bold;color:#555;display:block;margin-bottom:4px;'>FORMA DE PAGO</label>";
+  p+="<select id='ab-ed-pago' style='width:100%;padding:8px 10px;border:1.5px solid #1a6bb5;border-radius:6px;font-size:14px;'>"+opc+"</select></div>";
+  p+="<div style='margin-bottom:12px;'><label style='font-size:12px;font-weight:bold;color:#555;display:block;margin-bottom:4px;'>FECHA EN QUE SE RECIBIÓ</label>";
+  p+="<input type='date' id='ab-ed-fecha' value='"+esc(a.fecha||"")+"' style='width:100%;padding:8px 10px;border:1.5px solid #1a6bb5;border-radius:6px;font-size:14px;'></div>";
+  p+="<div style='background:#fff8e1;border-radius:6px;padding:8px 10px;margin-bottom:14px;font-size:12px;color:#7a5c00;'>Si cambia la fecha, el abono pasa a contar en la caja de ese otro día.</div>";
+  p+="<div style='display:flex;gap:8px;'>";
+  p+="<button onclick=\"guardarEdicionAbono('"+a.id+"')\" style='flex:1;padding:10px;background:#1a6bb5;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:bold;cursor:pointer;'>&#10003; Guardar</button>";
+  p+="<button onclick='closeOverlay()' style='padding:10px 16px;background:#eee;border:none;border-radius:6px;font-size:14px;cursor:pointer;'>Cancelar</button>";
+  p+="</div></div>";
+  showOverlay(p,false);
+}
+
+function guardarEdicionAbono(id){
+  var m=parseFloat((document.getElementById("ab-ed-monto")||{}).value||"0");
+  var pg=((document.getElementById("ab-ed-pago")||{}).value||"");
+  var f=((document.getElementById("ab-ed-fecha")||{}).value||"");
+  if(isNaN(m)||m<=0){alert("Ingresa un monto mayor a cero.");return;}
+  if(!pg){alert("Selecciona la forma de pago.");return;}
+  if(!f){alert("Indica la fecha en que se recibió el abono.");return;}
+  var ok=false;
+  for(var i=0;i<abonos.length;i++){
+    if(String(abonos[i].id)===String(id)){
+      abonos[i].monto=m;abonos[i].pago=pg;abonos[i].fecha=f;ok=true;break;
+    }
+  }
+  if(!ok){alert("Abono no encontrado.");return;}
+  guardar();closeOverlay();openHistorial();renderTable();calcTotales();
 }
 
 // Eliminar un abono desde el historial, donde puede aparecer aunque el
