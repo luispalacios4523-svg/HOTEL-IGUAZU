@@ -1230,8 +1230,51 @@ function autocompletarDoc(h,i,input){
   },600);
 }
 
+// Sugerencias por apellido o nombre. Antes solo existian por documento, asi
+// que a un huesped conocido habia que reescribirle todos los datos si no se
+// tenia la cedula a la mano.
+function autocompletarPas(h,i,campo,input){
+  var q=input.value.trim();
+  if(input._sugTimer)clearTimeout(input._sugTimer);
+  input._sugTimer=setTimeout(function(){
+    var sug=document.getElementById("sugbox_"+campo+"_"+h+"_"+i);
+    if(!sug)return;
+    if(q.length<3){sug.style.display="none";return;}
+    var qn=_normNombre(q),encontrados={},orden=[];
+    function revisar(p){
+      if(!p)return;
+      var ape=_normNombre(p.apellidos||""),nom=_normNombre(p.nombre||"");
+      if(!ape&&!nom)return;
+      if(ape.indexOf(qn)<0&&nom.indexOf(qn)<0)return;
+      var k=(p.doc||"")+"|"+ape+"|"+nom;
+      if(!encontrados[k]){encontrados[k]=p;orden.push(k);}
+    }
+    // Del mas reciente al mas antiguo: lo habitual es que vuelva un huesped
+    // de hace poco, no uno de hace diez anos.
+    for(var z=historialesEst.length-1;z>=0&&orden.length<40;z--){
+      var e=historialesEst[z];if(e&&e.pasajeros)e.pasajeros.forEach(revisar);
+    }
+    HABS.forEach(function(hh){if(reg[hh]&&reg[hh].pasajeros)reg[hh].pasajeros.forEach(revisar);});
+    var lista=orden.slice(0,6).map(function(k){return encontrados[k];});
+    if(!lista.length){sug.style.display="none";return;}
+    _sugerencias=lista;
+    sug.innerHTML=lista.map(function(p,si){
+      var nombreCompleto=((p.apellidos||"")+" "+(p.nombre||"")).trim()||"Sin nombre";
+      return "<div class='sug-item' onmousedown='seleccionarSug("+h+","+i+","+si+")'>"
+        +esc(nombreCompleto)
+        +(p.doc?" &mdash; <span style='color:#888;'>"+esc(p.doc)+"</span>":"")+"</div>";
+    }).join("");
+    sug.style.display="block";
+  },350);
+}
+
 function seleccionarSug(h,i,si){
   var p=_sugerencias[si];if(!p)return;
+  // Ocultar tambien las cajas de apellidos y nombre, no solo la del documento.
+  ["apellidos","nombre"].forEach(function(cp){
+    var sb=document.getElementById("sugbox_"+cp+"_"+h+"_"+i);
+    if(sb)sb.style.display="none";
+  });
   reg[h].pasajeros[i].doc=p.doc||"";
   reg[h].pasajeros[i].apellidos=p.apellidos||"";
   reg[h].pasajeros[i].nombre=p.nombre||"";
@@ -1498,8 +1541,15 @@ function renderPasModal(h,i,p,total){
   html+="<div class='sug-box' id='sugbox_"+h+"_"+i+"'></div></div></div>";
   var campos=[["APELLIDOS","apellidos",p.apellidos,"flex:1.5;min-width:120px"],["NOMBRE","nombre",p.nombre,"flex:1;min-width:100px"],["SEXO","sexo",p.sexo,"width:50px"],["F.NAC.","fnac",p.fnac,"width:100px"],["RH","rh",p.rh||"","width:50px"],["TELEFONO","tel",p.tel||"","width:110px"]];
   campos.forEach(function(c){
+    // Apellidos y Nombre tambien sugieren huespedes anteriores, no solo el
+    // documento: si no se tiene la cedula a mano, se escribe el apellido y se
+    // elige de la lista sin volver a digitar todos los datos.
+    var conSug=(c[1]==="apellidos"||c[1]==="nombre");
     html+="<div style='display:flex;flex-direction:column;gap:2px;"+c[3]+";'><label style='font-size:10px;color:#888;font-weight:bold;'>"+c[0]+"</label>";
-    html+="<input value='"+esc(c[2])+"' data-hab='"+h+"' data-idx='"+i+"' data-field='"+c[1]+"' oninput='updPasModalData(this)' style='width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-size:13px;'></div>";
+    html+="<div style='position:relative;'>";
+    html+="<input value='"+esc(c[2])+"' data-hab='"+h+"' data-idx='"+i+"' data-field='"+c[1]+"' autocomplete='off' oninput='updPasModalData(this)"+(conSug?";autocompletarPas("+h+","+i+",\""+c[1]+"\",this)":"")+"' style='width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-size:13px;'>";
+    if(conSug)html+="<div class='sug-box' id='sugbox_"+c[1]+"_"+h+"_"+i+"'></div>";
+    html+="</div></div>";
   });
   html+="</div></div>";
   return html;
