@@ -2438,8 +2438,27 @@ function renderCaja(){
   var tots={};CAJAS_ALL.forEach(function(c){tots[c]={ing:0,gas:0};});
   // Ingresos habitaciones
   var totHab={};CAJAS_ALL.forEach(function(c){totHab[c]=0;});
-  historialesEst.forEach(function(e){var p=e.pago||"Efectivo";if(!tots[p])p="Efectivo";tots[p].ing+=nm(e.valor);totHab[p]=(totHab[p]||0)+nm(e.valor);});
-  HABS.forEach(function(h){var v=nm(reg[h].valor);var p=reg[h].pago||"Efectivo";if(!tots[p])p="Efectivo";if(v>0){tots[p].ing+=v;totHab[p]=(totHab[p]||0)+v;}});
+  var _enHist={};
+  historialesEst.forEach(function(e){
+    var p=e.pago||"Efectivo";if(!tots[p])p="Efectivo";
+    tots[p].ing+=nm(e.valor);totHab[p]=(totHab[p]||0)+nm(e.valor);
+    _enHist[String(e.hab)+"|"+(e.entrada||"")+"|"+_normNombre(e.huesped||"")]=true;
+  });
+  HABS.forEach(function(h){
+    var v=nm(reg[h].valor);if(!(v>0))return;
+    // Un huesped recuperado por "Cargar ayer" esta a la vez en la habitacion y
+    // en el historial, desde que ese boton dejo de borrar del historial para no
+    // perder registros. Sin esta comprobacion su valor se sumaba dos veces e
+    // inflaba los acumulados de esta pantalla.
+    if(_enHist[String(h)+"|"+(reg[h].fechaEntrada||"")+"|"+_normNombre(nc(h)||"")])return;
+    var p=reg[h].pago||"Efectivo";if(!tots[p])p="Efectivo";
+    tots[p].ing+=v;totHab[p]=(totHab[p]||0)+v;
+  });
+  // Los abonos son ingresos y no se estaban contando en esta pantalla.
+  abonos.forEach(function(a){
+    var p=a.pago||"Efectivo";if(!tots[p])p="Efectivo";
+    tots[p].ing+=nm(a.monto);totHab[p]=(totHab[p]||0)+nm(a.monto);
+  });
   // Ingresos tienda
   var totTiendaIng={};CAJAS_ALL.forEach(function(c){totTiendaIng[c]=0;});
   historialVentas.forEach(function(v){
