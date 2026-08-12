@@ -2240,7 +2240,7 @@ function renderGastosTab(){
     return true;
   }).sort(function(a,b){var fd=(b.fecha||"").localeCompare(a.fecha||"");return fd!==0?fd:(b.id||0)-(a.id||0);});
   var tb=document.getElementById("tbody-gastos");
-  tb.innerHTML=lista.length?lista.map(function(g){var bg=CAT_COLORS[g.cat]||"#f9f9f9";var tc=CAT_TEXT[g.cat]||"#333";var audit=g.creadoEn?(g.creadoEn+(g.creadoPor?" · "+g.creadoPor:"")):"";return "<tr style='border-bottom:1px solid #eee;'><td style='padding:7px 8px;'>"+g.fecha+(audit?"<br><span style='font-size:10px;color:#aaa'>"+esc(audit)+"</span>":"")+"</td><td style='padding:7px 8px;text-align:right;font-weight:bold;'>"+fmt(g.monto)+"</td><td style='padding:7px 8px;'><span style='background:"+bg+";color:"+tc+";padding:2px 8px;border-radius:10px;font-size:12px;font-weight:bold;'>"+g.cat+"</span></td><td style='padding:7px 8px;'>"+esc(g.desc)+"</td><td style='padding:7px 8px;'>"+g.pago+"</td><td style='padding:7px 8px;'><button onclick='eliminarGasto("+g.id+")' style='border:none;background:none;cursor:pointer;color:#c00;font-size:13px'>&#10005;</button></td></tr>";}).join(""):"<tr><td colspan='6' style='padding:20px;text-align:center;color:#888'>Sin gastos</td></tr>";
+  tb.innerHTML=lista.length?lista.map(function(g){var bg=CAT_COLORS[g.cat]||"#f9f9f9";var tc=CAT_TEXT[g.cat]||"#333";var audit=g.creadoEn?(g.creadoEn+(g.creadoPor?" · "+g.creadoPor:"")):"";if(g.editadoEn)audit+=(audit?" ":"")+"· editado "+g.editadoEn+(g.editadoPor?" por "+g.editadoPor:"");return "<tr style='border-bottom:1px solid #eee;'><td style='padding:7px 8px;'>"+g.fecha+(audit?"<br><span style='font-size:10px;color:#aaa'>"+esc(audit)+"</span>":"")+"</td><td style='padding:7px 8px;text-align:right;font-weight:bold;'>"+fmt(g.monto)+"</td><td style='padding:7px 8px;'><span style='background:"+bg+";color:"+tc+";padding:2px 8px;border-radius:10px;font-size:12px;font-weight:bold;'>"+g.cat+"</span></td><td style='padding:7px 8px;'>"+esc(g.desc)+"</td><td style='padding:7px 8px;'>"+g.pago+"</td><td style='padding:7px 8px;white-space:nowrap;'>"+(sesion.rol==="admin"?"<button onclick='editarGasto("+g.id+")' style='padding:3px 8px;background:#e3f0ff;border:1px solid #1a6bb5;border-radius:4px;cursor:pointer;font-size:11px;color:#1a3a6b;margin-right:4px;'>✏️</button>":"")+"<button onclick='eliminarGasto("+g.id+")' style='border:none;background:none;cursor:pointer;color:#c00;font-size:13px'>&#10005;</button></td></tr>";}).join(""):"<tr><td colspan='6' style='padding:20px;text-align:center;color:#888'>Sin gastos</td></tr>";
   var totCat={},totPago={},gran=0;
   Object.keys(CATS).forEach(function(c){totCat[c]=0;});PAGOS.slice(1).forEach(function(p){totPago[p]=0;});
   lista.forEach(function(g){gran+=g.monto;if(totCat[g.cat]!==undefined)totCat[g.cat]+=g.monto;if(totPago[g.pago]!==undefined)totPago[g.pago]+=g.monto;});
@@ -2252,6 +2252,67 @@ function renderGastosTab(){
   totDiv.innerHTML=html;
 }
 function eliminarGasto(id){if(!confirm("Eliminar?"))return;gastosDetalle=gastosDetalle.filter(function(g){return g.id!==id;});guardar();renderGastosTab();calcTotales();}
+
+// Editar un gasto ya registrado. Solo administrador. Antes solo se podia
+// eliminar, asi que corregir una fecha o un monto obligaba a borrar y
+// reescribir el gasto completo.
+function editarGasto(id){
+  if(sesion.rol!=="admin"){alert("Solo el administrador puede editar gastos.");return;}
+  var g=null;
+  for(var i=0;i<gastosDetalle.length;i++){if(gastosDetalle[i].id===id){g=gastosDetalle[i];break;}}
+  if(!g){alert("Gasto no encontrado.");return;}
+  var est="width:100%;padding:8px 10px;border:1.5px solid #1a6bb5;border-radius:6px;font-size:14px;";
+  var lab="font-size:12px;font-weight:bold;color:#555;display:block;margin-bottom:4px;";
+  var opcPago=PAGOS.filter(function(p){return p;}).map(function(p){
+    return "<option value='"+p+"'"+(p===(g.pago||"")?" selected":"")+">"+p+"</option>";
+  }).join("");
+  var opcCat=Object.keys(CATS).map(function(c){
+    return "<option value='"+c+"'"+(c===(g.cat||"")?" selected":"")+">"+c+" — "+esc(CATS[c])+"</option>";
+  }).join("");
+  var p="<div style='padding:16px;min-width:360px;'>";
+  p+="<h3 style='margin:0 0 12px;color:#1a3a6b;'>&#9999;&#65039; Editar gasto</h3>";
+  if(g.creadoEn)p+="<div style='background:#f0f4ff;border-radius:6px;padding:6px 10px;margin-bottom:12px;font-size:12px;color:#666;'>Registrado el "+esc(g.creadoEn)+(g.creadoPor?" por "+esc(g.creadoPor):"")+"</div>";
+  p+="<div style='margin-bottom:10px;'><label style='"+lab+"'>FECHA</label><input type='date' id='ge-fecha' value='"+esc(g.fecha||"")+"' style='"+est+"'></div>";
+  p+="<div style='margin-bottom:10px;'><label style='"+lab+"'>MONTO ($)</label><input type='number' id='ge-monto' value='"+nm(g.monto)+"' style='"+est+"font-weight:bold;'></div>";
+  p+="<div style='margin-bottom:10px;'><label style='"+lab+"'>CATEGORÍA</label><select id='ge-cat' style='"+est+"'>"+opcCat+"</select></div>";
+  p+="<div style='margin-bottom:10px;'><label style='"+lab+"'>DESCRIPCIÓN</label><input type='text' id='ge-desc' value='"+esc(g.desc||"")+"' style='"+est+"'></div>";
+  p+="<div style='margin-bottom:14px;'><label style='"+lab+"'>FORMA DE PAGO</label><select id='ge-pago' style='"+est+"'>"+opcPago+"</select></div>";
+  p+="<div style='display:flex;gap:8px;'>";
+  p+="<button onclick='guardarEdicionGasto("+g.id+")' style='flex:1;padding:10px;background:#1a6bb5;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:bold;cursor:pointer;'>&#10003; Guardar</button>";
+  p+="<button onclick='closeOverlay()' style='padding:10px 16px;background:#eee;border:none;border-radius:6px;font-size:14px;cursor:pointer;'>Cancelar</button>";
+  p+="</div></div>";
+  showOverlay(p,false);
+}
+
+function guardarEdicionGasto(id){
+  if(sesion.rol!=="admin")return;
+  var f=((document.getElementById("ge-fecha")||{}).value||"");
+  var m=parseFloat((document.getElementById("ge-monto")||{}).value||"0");
+  var c=((document.getElementById("ge-cat")||{}).value||"");
+  var d=((document.getElementById("ge-desc")||{}).value||"").trim();
+  var pg=((document.getElementById("ge-pago")||{}).value||"");
+  if(!f){alert("Indica la fecha.");return;}
+  if(isNaN(m)||m<=0){alert("Ingresa un monto mayor a cero.");return;}
+  if(!c){alert("Selecciona la categoría.");return;}
+  if(!d){alert("Escribe la descripción.");return;}
+  if(!pg){alert("Selecciona la forma de pago.");return;}
+  // Misma regla que al registrar: para NOM la descripcion empieza con 'Turno'.
+  if(c==="NOM"&&!d.toLowerCase().startsWith("turno")){alert("Para NOM la descripción debe empezar con 'Turno'.");return;}
+  var ok=false;
+  for(var i=0;i<gastosDetalle.length;i++){
+    if(gastosDetalle[i].id===id){
+      var g=gastosDetalle[i];
+      g.fecha=f;g.monto=m;g.cat=c;g.desc=d;g.pago=pg;
+      // Queda constancia de la edicion, junto al registro original.
+      var a=new Date();
+      g.editadoEn=a.toLocaleDateString('en-CA')+" "+a.toTimeString().slice(0,5);
+      g.editadoPor=sesion.nombre||sesion.usuario||"";
+      ok=true;break;
+    }
+  }
+  if(!ok){alert("Gasto no encontrado.");return;}
+  guardar();closeOverlay();renderGastosTab();calcTotales();
+}
 function exportarGastos(){
   var filtCat=document.getElementById("filtro-cat").value;var filtN=(document.getElementById("filtro-nombre").value||"").toLowerCase();var filtM=document.getElementById("filtro-mes").value;
   var lista=gastosDetalle.filter(function(g){if(filtCat&&g.cat!==filtCat)return false;if(filtN&&!(g.desc||"").toLowerCase().includes(filtN))return false;if(filtM&&!(g.fecha||"").startsWith(filtM))return false;return true;}).sort(function(a,b){return(b.fecha||"").localeCompare(a.fecha||"");});
