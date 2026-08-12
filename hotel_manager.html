@@ -813,8 +813,8 @@ function showTab(id,el){
   document.querySelectorAll(".tab").forEach(function(t){t.classList.remove("active");});
   document.getElementById("tab-"+id).classList.add("active");el.classList.add("active");
   if(id==="tienda"){renderTienda();var fv=document.getElementById('venta-fecha');if(fv&&!fv.value)fv.value=new Date().toLocaleDateString('en-CA');}
-  if(id==="gastos"){var hoy=new Date().toISOString().split("T")[0];var fg=document.getElementById("g-fecha");if(fg&&!fg.value)fg.value=hoy;var fm=document.getElementById("filtro-mes");if(fm&&!fm.value)fm.value=hoy.slice(0,7);renderGastosTab();}
-  if(id==="caja"){var cm=document.getElementById("caja-mes");if(cm&&!cm.value)cm.value=new Date().toISOString().slice(0,7);renderCaja();}
+  if(id==="gastos"){var hoy=new Date().toLocaleDateString('en-CA');var fg=document.getElementById("g-fecha");if(fg&&!fg.value)fg.value=hoy;var fm=document.getElementById("filtro-mes");if(fm&&!fm.value)fm.value=hoy.slice(0,7);renderGastosTab();}
+  if(id==="caja"){var cm=document.getElementById("caja-mes");if(cm&&!cm.value)cm.value=new Date().toLocaleDateString('en-CA').slice(0,7);renderCaja();}
 }
 
 function closeOverlay(){document.getElementById("overlay").style.display="none";document.getElementById("mbox").style.width="";}
@@ -825,7 +825,7 @@ function exportarDatos(){
   var datos={version:1,fecha:new Date().toISOString(),reg:reg,gastos:gastos,gastosDetalle:gastosDetalle,productos:productos,historialVentas:historialVentas,historialesEst:historialesEst,saldoInicial:saldoInicial,comprasTienda:comprasTienda};
   var blob=new Blob([JSON.stringify(datos)],{type:"application/json"});
   var url=URL.createObjectURL(blob);var a=document.createElement("a");
-  a.href=url;a.download="hotel-backup-"+new Date().toISOString().split("T")[0]+".json";a.click();
+  a.href=url;a.download="hotel-backup-"+new Date().toLocaleDateString('en-CA')+".json";a.click();
   URL.revokeObjectURL(url);
   fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hotel_ultimo_backup:new Date().toISOString()})});
   var av=document.getElementById("aviso-backup");if(av)av.style.display="none";
@@ -889,7 +889,7 @@ function openHistorial(){
     historialesEst.map(function(e,i){return Object.assign({},e,{estado:"Archivado",estadoBg:"#f0f0f0",estadoCol:"#888",activo:false,idxHist:i});})
       .filter(function(e){return !_claveAct[e.hab+"|"+(e.entrada||"")+"|"+_normNombre(e.huesped||"")];})
   ).concat(_filasAbonos);
-  var hoy=new Date().toISOString().split("T")[0];
+  var hoy=new Date().toLocaleDateString('en-CA');
   var mes=hoy.slice(0,7);
   var html="<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;'>";
   html+="<h3 style='margin:0;'>📋 Historial de huespedes</h3>";
@@ -943,12 +943,15 @@ function busquedaRapidaH(){
 }
 
 function filtroRapidoH(tipo){
-  var hoy=new Date(),desde="",hasta=hoy.toISOString().split("T")[0];
+  // toLocaleDateString('en-CA') da la fecha LOCAL en formato YYYY-MM-DD.
+  // Con toISOString() se obtenia la fecha UTC: en Colombia (UTC-5), despues de
+  // las 7 de la noche ya devolvia el dia siguiente y los filtros se corrian.
+  var hoy=new Date(),desde="",hasta=hoy.toLocaleDateString('en-CA');
   if(tipo==="hoy"){desde=hasta;}
-  else if(tipo==="ayer"){var ay=new Date(hoy);ay.setDate(ay.getDate()-1);desde=ay.toISOString().split("T")[0];hasta=desde;}
-  else if(tipo==="semana"){var lu=new Date(hoy);lu.setDate(hoy.getDate()-((hoy.getDay()||7)-1));desde=lu.toISOString().split("T")[0];}
+  else if(tipo==="ayer"){var ay=new Date(hoy);ay.setDate(ay.getDate()-1);desde=ay.toLocaleDateString('en-CA');hasta=desde;}
+  else if(tipo==="semana"){var lu=new Date(hoy);lu.setDate(hoy.getDate()-((hoy.getDay()||7)-1));desde=lu.toLocaleDateString('en-CA');}
   else if(tipo==="mes"){desde=hoy.getFullYear()+"-"+String(hoy.getMonth()+1).padStart(2,"0")+"-01";}
-  else if(tipo==="mes_ant"){var ma=new Date(hoy.getFullYear(),hoy.getMonth()-1,1);var fma=new Date(hoy.getFullYear(),hoy.getMonth(),0);desde=ma.toISOString().split("T")[0];hasta=fma.toISOString().split("T")[0];}
+  else if(tipo==="mes_ant"){var ma=new Date(hoy.getFullYear(),hoy.getMonth()-1,1);var fma=new Date(hoy.getFullYear(),hoy.getMonth(),0);desde=ma.toLocaleDateString('en-CA');hasta=fma.toLocaleDateString('en-CA');}
   else if(tipo==="anio"){desde=hoy.getFullYear()+"-01-01";}
   else if(tipo==="todo"){desde="";hasta="";}
   var d=document.getElementById("hf-desde");var h=document.getElementById("hf-hasta");
@@ -2556,7 +2559,7 @@ function renderCaja(){
   Promise.all(_urls.map(function(u){return fetch(u).then(function(r){return r.json();}).catch(function(){return {efectivo:0};});}))
   .then(function(res){var tot=efSaldo+res.reduce(function(s,r){return s+(r.efectivo||0);},0);document.getElementById('total-efectivo-global').textContent=fmt(tot);});
   document.getElementById("caja-general-total").textContent=fmt(efSaldo+digSaldo+(tots["Ayenda"].ing-tots["Ayenda"].gas));
-  var hoy=new Date().toISOString().split("T")[0];var movHtml="";var hay=false;
+  var hoy=new Date().toLocaleDateString('en-CA');var movHtml="";var hay=false;
   var vHoy=HABS.filter(function(h){return nm(reg[h].valor)>0;});
   if(vHoy.length){hay=true;movHtml+="<div style='font-size:12px;font-weight:bold;color:#1a4a80;margin-bottom:6px;'>Ventas hab.</div>";vHoy.forEach(function(h){var nombre=nc(h)||reg[h].nombre||"Sin nombre";movHtml+="<div style='display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eee;font-size:13px;'><span>Hab."+h+" &mdash; "+esc(nombre)+"</span><span><strong style='color:#2a6a3a;'>+"+fmt(nm(reg[h].valor))+"</strong> <span style='color:#888;font-size:11px;'>"+(reg[h].pago||"")+"</span></span></div>";});}
   var gHoy=gastosDetalle.filter(function(g){return g.fecha===hoy;});
@@ -2674,7 +2677,7 @@ setInterval(function(){
 window.addEventListener('beforeunload', function(){
   if(!_datosListos)return;
   try{
-    var hoy=new Date().toISOString().slice(0,10);
+    var hoy=new Date().toLocaleDateString('en-CA');
     if(localStorage.getItem('hotel_ultimo_backup')===hoy)return;
     var datos={version:1,fecha:new Date().toISOString(),reg:reg,gastos:gastos,gastosDetalle:gastosDetalle,productos:productos,historialVentas:historialVentas,historialesEst:historialesEst,saldoInicial:saldoInicial,comprasTienda:comprasTienda,ajustes:ajustes};
     var a=document.createElement('a');
