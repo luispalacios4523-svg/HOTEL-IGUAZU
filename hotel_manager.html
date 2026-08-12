@@ -1149,7 +1149,14 @@ function renderTable(){
       html+="<td><span class='dot "+(okVis?"ok":"r")+"' id='dot"+h+"'>"+(okVis?"&#10003;":"R")+"</span></td>";
       // FECHA - siempre visible y editable
       var fechaHoy=getFechaDefault();
-      html+="<td><input type='date' class='ci' value='"+(rVis.fechaEntrada||fechaHoy)+"' onchange='updFechaEntrada("+h+",this.value)' style='font-size:11px;width:105px;"+(modoAyer&&!r.fechaEntrada?"background:#fff3cd;":"")+"'></td>";
+      // En MODO AYER la fecha no es editable: se muestra como texto fijo. Antes
+      // era un campo abierto y un registro de ayer podia terminar guardado con
+      // otro dia, por descuido o por un selector de fecha.
+      if(modoAyer){
+        html+="<td><span title='En modo ayer la fecha es fija. Para cambiarla, salga a Ver hoy.' style='display:inline-block;font-size:11px;width:97px;padding:3px 4px;background:#fff3cd;border:1px solid #c9a227;border-radius:4px;color:#7a5c00;text-align:center;'>"+esc(rVis.fechaEntrada||fechaHoy)+"</span></td>";
+      } else {
+        html+="<td><input type='date' class='ci' value='"+(rVis.fechaEntrada||fechaHoy)+"' onchange='updFechaEntrada("+h+",this.value)' style='font-size:11px;width:105px;'></td>";
+      }
       // NOMBRE
       html+="<td id='nc"+h+"'><span style='padding:4px 6px;font-size:14px'>"+(okVis?esc(nombreVis):"<span style='color:#aaa'>Nombre cliente</span>")+"</span></td>";
       // VALOR
@@ -1660,6 +1667,19 @@ function updHab(h,f,v){
     reg[h]=initHab(h);
   }
   reg[h][f]=v;
+  // En MODO AYER lo que se escribe pertenece a ayer, sin excepcion. Si la
+  // habitacion venia con la fecha de hoy —arrastrada de un huesped anterior o
+  // puesta por un selector— se corrige. No se toca la de un huesped recuperado
+  // por "Cargar ayer", cuya entrada es de dias anteriores y debe conservarse.
+  if(modoAyer&&v!==""&&v!=null){
+    var _fAy=getFechaDefault();
+    var _fHoyReal=new Date().toLocaleDateString('en-CA');
+    if(!reg[h].fechaEntrada||reg[h].fechaEntrada===_fHoyReal){
+      reg[h].fechaEntrada=_fAy;
+      var _mrA=document.getElementById("mr"+h);
+      if(_mrA){var _fiA=_mrA.querySelector("input[type='date']");if(_fiA)_fiA.value=_fAy;}
+    }
+  }
   // El input de fecha MUESTRA getFechaDefault() cuando la habitacion no tiene
   // fecha guardada, pero solo la escribe si el usuario toca ese campo. Al llenar
   // nombre y valor sin tocarlo, el registro quedaba SIN fecha de entrada: no
