@@ -608,7 +608,9 @@ function _posAviso(){
   if(!ancla){el.style.display="none";return;}
   // En una fila de habitacion el aviso va junto a la columna del VALOR, que es
   // donde esta mirando el usuario. En cualquier otro caso, al lado del elemento.
-  var ref=(ancla.tagName==="TR"&&ancla.cells&&ancla.cells[4])?ancla.cells[4]:ancla;
+  // En una fila, la celda del valor va marcada con la clase 'cv': su posicion
+  // es distinta en ventas y en gastos, asi no depende del numero de columna.
+  var ref=(ancla.tagName==="TR")?(ancla.querySelector(".cv")||ancla):ancla;
   var r=ref.getBoundingClientRect();
   if(r.bottom<60||r.top>window.innerHeight-10){el.style.display="none";return;}
   el.style.display="block";
@@ -1320,11 +1322,11 @@ function renderTable(){
         var _totAb=abonos.reduce(function(s,a){
           return (String(a.hab)===String(h)&&(a.entrada||"")===r.fechaEntrada)?s+nm(a.monto):s;
         },0);
-        html+="<td style='text-align:right'><span style='color:#aaa;font-size:13px'>"+fmt(nm(r.valor))+"</span><br><span style='color:#aaa;font-size:10px'>pag."+etiqFecha+"</span>";
+        html+="<td class='cv' style='text-align:right'><span style='color:#aaa;font-size:13px'>"+fmt(nm(r.valor))+"</span><br><span style='color:#aaa;font-size:10px'>pag."+etiqFecha+"</span>";
         if(_totAb>0)html+="<br><span style='color:#2d6a3f;font-size:10px;font-weight:bold'>+"+fmt(_totAb)+" abonado</span>";
         html+="<br><button onclick='abrirAbono("+h+")' style='margin-top:3px;background:#e3f0ff;border:1px solid #1a6bb5;color:#1a3a6b;border-radius:4px;padding:1px 8px;font-size:10px;cursor:pointer'>+ Abono</button></td>";
       } else {
-        html+="<td style='text-align:right'><input class='ci val' type='number' value='"+esc(rVis.valor)+"' placeholder='0' style='width:110px;text-align:right' oninput='updHab("+h+",\"valor\",this.value)' onblur='validarPago("+h+",this)'></td>";
+        html+="<td class='cv' style='text-align:right'><input class='ci val' type='number' value='"+esc(rVis.valor)+"' placeholder='0' style='width:110px;text-align:right' oninput='updHab("+h+",\"valor\",this.value)' onblur='validarPago("+h+",this)'></td>";
       }
       // CANAL
       html+="<td><select class='ci' onchange='updHab("+h+",\"canal\",this.value)' style='width:100px'>"+canalOpts(rVis.canal)+"</select></td>";
@@ -2368,12 +2370,16 @@ function registrarGasto(){
   if(!fecha||!monto||!cat||!desc||!pago){alert("Completa todos los campos incluyendo Forma de pago.");return;}
   if(cat==="NOM"&&!desc.trim().toLowerCase().startsWith("turno")){alert("Para NOM la descripción debe empezar con 'Turno'. Ejemplo: Turno mary, Turno ovidio vacaciones.");return;}
   var _ahoraG=new Date();var _tsG=_ahoraG.toLocaleDateString('en-CA')+" "+_ahoraG.toTimeString().slice(0,5);
-  gastosDetalle.push({id:Date.now(),fecha:fecha,monto:monto,cat:cat,desc:desc,pago:pago,creadoPor:sesion.nombre||sesion.usuario||"",creadoEn:_tsG});
+  var _idG=Date.now();
+  gastosDetalle.push({id:_idG,fecha:fecha,monto:monto,cat:cat,desc:desc,pago:pago,creadoPor:sesion.nombre||sesion.usuario||"",creadoEn:_tsG});
   document.getElementById("g-monto").value="";
   document.getElementById("g-pago").value="";
-  // El aviso flotante se ancla al campo del monto, no a una habitacion.
-  _habEditando=null;_avisoAncla="g-monto";
-  limpiarChips();guardar("gasto-msg");renderGastosTab();calcTotales();
+  limpiarChips();
+  // Se redibuja la lista ANTES de guardar, para que la fila del gasto recien
+  // creado exista y el aviso pueda anclarse a ella y no al formulario.
+  renderGastosTab();
+  _habEditando=null;_avisoAncla="gr"+_idG;
+  guardar("gasto-msg");calcTotales();
 }
 function verTodosGastos(){document.getElementById("filtro-cat").value="";document.getElementById("filtro-nombre").value="";document.getElementById("filtro-mes").value="";renderGastosTab();}
 function renderGastosTab(){
@@ -2387,7 +2393,7 @@ function renderGastosTab(){
     return true;
   }).sort(function(a,b){var fd=(b.fecha||"").localeCompare(a.fecha||"");return fd!==0?fd:(b.id||0)-(a.id||0);});
   var tb=document.getElementById("tbody-gastos");
-  tb.innerHTML=lista.length?lista.map(function(g){var bg=CAT_COLORS[g.cat]||"#f9f9f9";var tc=CAT_TEXT[g.cat]||"#333";var audit=g.creadoEn?(g.creadoEn+(g.creadoPor?" · "+g.creadoPor:"")):"";if(g.editadoEn)audit+=(audit?" ":"")+"· editado "+g.editadoEn+(g.editadoPor?" por "+g.editadoPor:"");return "<tr style='border-bottom:1px solid #eee;'><td style='padding:7px 8px;'>"+g.fecha+(audit?"<br><span style='font-size:10px;color:#aaa'>"+esc(audit)+"</span>":"")+"</td><td style='padding:7px 8px;text-align:right;font-weight:bold;'>"+fmt(g.monto)+"</td><td style='padding:7px 8px;'><span style='background:"+bg+";color:"+tc+";padding:2px 8px;border-radius:10px;font-size:12px;font-weight:bold;'>"+g.cat+"</span></td><td style='padding:7px 8px;'>"+esc(g.desc)+"</td><td style='padding:7px 8px;'>"+g.pago+"</td><td style='padding:7px 8px;white-space:nowrap;'>"+(sesion.rol==="admin"?"<button onclick='editarGasto("+g.id+")' style='padding:3px 8px;background:#e3f0ff;border:1px solid #1a6bb5;border-radius:4px;cursor:pointer;font-size:11px;color:#1a3a6b;margin-right:4px;'>✏️</button>":"")+"<button onclick='eliminarGasto("+g.id+")' style='border:none;background:none;cursor:pointer;color:#c00;font-size:13px'>&#10005;</button></td></tr>";}).join(""):"<tr><td colspan='6' style='padding:20px;text-align:center;color:#888'>Sin gastos</td></tr>";
+  tb.innerHTML=lista.length?lista.map(function(g){var bg=CAT_COLORS[g.cat]||"#f9f9f9";var tc=CAT_TEXT[g.cat]||"#333";var audit=g.creadoEn?(g.creadoEn+(g.creadoPor?" · "+g.creadoPor:"")):"";if(g.editadoEn)audit+=(audit?" ":"")+"· editado "+g.editadoEn+(g.editadoPor?" por "+g.editadoPor:"");return "<tr id='gr"+g.id+"' style='border-bottom:1px solid #eee;'><td style='padding:7px 8px;'>"+g.fecha+(audit?"<br><span style='font-size:10px;color:#aaa'>"+esc(audit)+"</span>":"")+"</td><td class='cv' style='padding:7px 8px;text-align:right;font-weight:bold;'>"+fmt(g.monto)+"</td><td style='padding:7px 8px;'><span style='background:"+bg+";color:"+tc+";padding:2px 8px;border-radius:10px;font-size:12px;font-weight:bold;'>"+g.cat+"</span></td><td style='padding:7px 8px;'>"+esc(g.desc)+"</td><td style='padding:7px 8px;'>"+g.pago+"</td><td style='padding:7px 8px;white-space:nowrap;'>"+(sesion.rol==="admin"?"<button onclick='editarGasto("+g.id+")' style='padding:3px 8px;background:#e3f0ff;border:1px solid #1a6bb5;border-radius:4px;cursor:pointer;font-size:11px;color:#1a3a6b;margin-right:4px;'>✏️</button>":"")+"<button onclick='eliminarGasto("+g.id+")' style='border:none;background:none;cursor:pointer;color:#c00;font-size:13px'>&#10005;</button></td></tr>";}).join(""):"<tr><td colspan='6' style='padding:20px;text-align:center;color:#888'>Sin gastos</td></tr>";
   var totCat={},totPago={},gran=0;
   Object.keys(CATS).forEach(function(c){totCat[c]=0;});PAGOS.slice(1).forEach(function(p){totPago[p]=0;});
   lista.forEach(function(g){gran+=g.monto;if(totCat[g.cat]!==undefined)totCat[g.cat]+=g.monto;if(totPago[g.pago]!==undefined)totPago[g.pago]+=g.monto;});
