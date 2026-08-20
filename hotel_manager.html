@@ -662,6 +662,9 @@ function _enviarGuardado(body,payload,strs,cnts,_extraMsgId,intento,gen){
       for(var k in payload){_baseEnviado[k]=strs[k];_baseConteo[k]=cnts[k];}
       window._ultimoExtraMsgId=null;
       _msgGuardado(_extraMsgId);
+      // El servidor respondio 200, pero eso solo dice que recibio y confirmo.
+      // La verificacion contrasta ademas cuantos registros quedaron alla.
+      _programarVerificacion();
     }).catch(function(e){
       if(gen!==_genGuardado)return;
       console.error("Error guardando (intento "+(intento+1)+"):",e);
@@ -703,27 +706,73 @@ function _reintentarGuardar(){
   guardar(id);
 }
 
+// Verificacion automatica despues de guardar. Consulta /api/conteo, que
+// devuelve solo cuantos registros tiene cada clave en el servidor —unos
+// bytes—, no los datos. Asi se puede confirmar cada guardado sin repetir el
+// consumo de transferencia que agoto la cuota de Supabase en julio.
+var _timerVerif=null;
+function _programarVerificacion(){
+  if(_timerVerif)clearTimeout(_timerVerif);
+  var gen=_genGuardado;
+  // Se espera 2 segundos: guardar() corre a cada tecla, y sin esta pausa se
+  // dispararia una verificacion por cada caracter escrito.
+  _timerVerif=setTimeout(function(){
+    _timerVerif=null;
+    if(gen!==_genGuardado)return; // hay un guardado mas nuevo en curso
+    fetch('/api/conteo?t='+Date.now()).then(function(r){
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      return r.json();
+    }).then(function(d){
+      if(gen!==_genGuardado)return;
+      var local=_payloadCompleto(),difs=[];
+      for(var k in local){
+        if(!Array.isArray(local[k]))continue;      // el servidor solo cuenta listas
+        var ns=d[k];
+        if(typeof ns!=="number"||ns<0)continue;
+        if(local[k].length!==ns)difs.push((_NOMBRE_CLAVE[k]||k)+": "+local[k].length+" aquí / "+ns+" en el servidor");
+      }
+      var m=document.getElementById("saved-msg");
+      if(!m)return;
+      if(!difs.length){
+        m.innerHTML="✅ Guardado y verificado";
+        m.style.color="#2a6a3a";m.style.background="";m.style.padding="";m.style.borderRadius="";
+        setTimeout(function(){if(m.innerHTML.indexOf("verificado")>=0)m.innerHTML="";},2500);
+      }else{
+        console.warn("Verificacion — diferencias con el servidor:",difs);
+        m.innerHTML="⚠️ El servidor no coincide — "+esc(difs[0])+" &nbsp;<button onclick='verificarServidor()' style='background:#c9a227;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;'>Revisar</button>";
+        m.style.color="#7a5c00";m.style.background="#fff3cd";m.style.padding="4px 10px";m.style.borderRadius="6px";
+      }
+    }).catch(function(e){console.warn("No se pudo verificar:",e);});
+  },2000);
+}
+
 // Compara lo que hay en esta pantalla contra lo guardado en el servidor.
 // Es solo lectura: no escribe ni modifica nada.
 function verificarServidor(){
   var m=document.getElementById("saved-msg");
   if(m){m.innerHTML="⏳ Verificando...";m.style.color="#7a5c00";m.style.background="";m.style.padding="";}
-  fetch('/api/load?t='+Date.now()).then(function(r){
+  // /api/conteo devuelve solo los numeros, no los datos: la comprobacion
+  // cuesta unos bytes en vez de los ~3.4 MB que pesa /api/load.
+  fetch('/api/conteo?t='+Date.now()).then(function(r){
     if(!r.ok)throw new Error('HTTP '+r.status);
     return r.json();
   }).then(function(d){
     var local=_payloadCompleto();
     var filas="",todoOk=true;
     for(var k in local){
-      var nl=_contar(local[k]);
-      var enServidor=(d[k]!==undefined&&d[k]!==null)?d[k]:(Array.isArray(local[k])?[]:{});
-      var ns=_contar(enServidor);
-      var ok=(nl===ns);if(!ok)todoOk=false;
+      var esLista=Array.isArray(local[k]);
+      var nl=esLista?local[k].length:_contar(local[k]);
+      var ns=(typeof d[k]==="number")?d[k]:-1;
+      // El servidor solo sabe contar listas; para el resto informa -1 y esa
+      // fila se muestra sin comparar, en vez de marcarla como diferencia.
+      var comparable=esLista&&ns>=0;
+      var ok=comparable?(nl===ns):true;
+      if(!ok)todoOk=false;
       filas+="<tr style='border-top:1px solid #eee;"+(ok?"":"background:#fdecea;")+"'>"
         +"<td style='padding:6px 8px;'>"+(_NOMBRE_CLAVE[k]||k)+"</td>"
         +"<td style='padding:6px 8px;text-align:right;'>"+nl+"</td>"
-        +"<td style='padding:6px 8px;text-align:right;'>"+ns+"</td>"
-        +"<td style='padding:6px 8px;text-align:center;'>"+(ok?"✅":"❌")+"</td></tr>";
+        +"<td style='padding:6px 8px;text-align:right;'>"+(comparable?ns:"—")+"</td>"
+        +"<td style='padding:6px 8px;text-align:center;'>"+(comparable?(ok?"✅":"❌"):"·")+"</td></tr>";
     }
     var html="<div style='padding:16px;min-width:430px;'>";
     html+="<h3 style='margin:0 0 4px;color:#1a3a6b;'>&#128269; Verificación con el servidor</h3>";

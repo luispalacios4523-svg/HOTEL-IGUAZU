@@ -69,6 +69,29 @@ if DATABASE_URL:
                 return rows[0][0]
         return default
 
+    def db_conteos():
+        # Cuenta los elementos de cada clave SIN traer los datos. El conteo lo
+        # hace Postgres y solo viajan los numeros: unos bytes en vez de los
+        # ~3.4 MB que cuesta /api/load. Permite verificar despues de cada
+        # guardado sin volver a disparar el consumo de Supabase.
+        conn = get_db()
+        try:
+            try:
+                rows = conn.run(
+                    "SELECT key, CASE WHEN value LIKE '[%' "
+                    "THEN json_array_length(value::json) ELSE -1 END FROM store"
+                )
+            except Exception:
+                # Si algun valor no es JSON valido, se informa -1 en todos y el
+                # cliente simplemente no verifica, en vez de fallar la peticion.
+                rows = [(k, -1) for (k,) in conn.run('SELECT key FROM store')]
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+        return {k: v for k, v in rows}
+
     def db_save(data):
         # Todo o nada: si algo falla a mitad, Postgres descarta los cambios
         # y los datos quedan como estaban. Nunca se guarda "una parte".
@@ -130,6 +153,19 @@ else:
                 return row['value']
         return default
 
+    def db_conteos():
+        conn = get_db()
+        rows = conn.execute('SELECT key, value FROM store').fetchall()
+        conn.close()
+        out = {}
+        for r in rows:
+            try:
+                v = json.loads(r['value'])
+                out[r['key']] = len(v) if isinstance(v, list) else -1
+            except Exception:
+                out[r['key']] = -1
+        return out
+
     def db_save(data):
         conn = get_db()
         for key, value in data.items():
@@ -170,6 +206,12 @@ def efectivo():
     val = db_get_one('efectivo_actual', 0)
     r = jsonify({'efectivo': val})
     return _cors(r)
+
+@app.route('/api/conteo')
+def conteo():
+    # Devuelve cuantos registros tiene cada clave en el servidor. Se usa para
+    # confirmar despues de guardar sin descargar los datos completos.
+    return jsonify(db_conteos())
 
 @app.route('/api/load')
 def load():
