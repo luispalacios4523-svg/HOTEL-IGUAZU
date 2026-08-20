@@ -637,24 +637,59 @@ function guardar(_extraMsgId){
     }
   }
 
-  fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+  // El cuerpo se serializa UNA vez: los reintentos reenvian exactamente lo
+  // mismo, de modo que la referencia que se marca como guardada corresponde
+  // siempre a lo que de verdad viajo.
+  _genGuardado++;
+  _enviarGuardado(JSON.stringify(payload),payload,strs,cnts,_extraMsgId,0,_genGuardado);
+}
+
+// Esperas entre reintentos: 2, 5, 10 y 15 segundos. En total unos 32 segundos,
+// mas que suficiente para cubrir un reinicio del servidor, que dura menos.
+var _ESPERAS=[2000,5000,10000,15000];
+var _genGuardado=0;
+
+function _enviarGuardado(body,payload,strs,cnts,_extraMsgId,intento,gen){
+  // Si mientras se reintentaba se inicio un guardado mas nuevo, este queda
+  // obsoleto: aquel recalculo la diferencia e incluye todo lo que este traia.
+  if(gen!==_genGuardado)return;
+  fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:body})
     .then(function(r){
       if(!r.ok)throw new Error('HTTP '+r.status);
+      if(gen!==_genGuardado)return;
       // Solo se actualiza la referencia de lo que el servidor confirmo.
       if(!_baseEnviado)_baseEnviado={};
       for(var k in payload){_baseEnviado[k]=strs[k];_baseConteo[k]=cnts[k];}
       window._ultimoExtraMsgId=null;
       _msgGuardado(_extraMsgId);
     }).catch(function(e){
-      console.error("Error guardando:",e);
-      // La referencia NO se actualiza: lo pendiente se reenvia al reintentar.
-      window._ultimoExtraMsgId=_extraMsgId||null;
-      var m=document.getElementById("saved-msg");
-      if(m){
-        m.innerHTML=_MSG_ERROR;
-        m.style.color="#c0392b";m.style.background="#fdecea";m.style.padding="4px 10px";m.style.borderRadius="6px";
+      if(gen!==_genGuardado)return;
+      console.error("Error guardando (intento "+(intento+1)+"):",e);
+      // La referencia NO se actualiza mientras no se confirme el guardado.
+      if(intento<_ESPERAS.length){
+        // Un corte breve —un reinicio del servidor, una caida momentanea de la
+        // conexion— se resuelve solo. Antes la app se rendia al primer fallo y
+        // le pedia al usuario que presionara Reintentar.
+        var seg=Math.round(_ESPERAS[intento]/1000);
+        var m=document.getElementById("saved-msg");
+        if(m){
+          m.innerHTML="⏳ Sin conexión — reintentando en "+seg+"s ("+(intento+1)+"/"+_ESPERAS.length+")";
+          m.style.color="#7a5c00";m.style.background="#fff3cd";m.style.padding="4px 10px";m.style.borderRadius="6px";
+        }
+        if(_extraMsgId){var em=document.getElementById(_extraMsgId);if(em){em.innerHTML="⏳ Reintentando...";em.style.color="#7a5c00";}}
+        setTimeout(function(){
+          _enviarGuardado(body,payload,strs,cnts,_extraMsgId,intento+1,gen);
+        },_ESPERAS[intento]);
+        return;
       }
-      if(_extraMsgId){var em=document.getElementById(_extraMsgId);if(em){em.innerHTML=_MSG_ERROR;em.style.color="#c0392b";}}
+      // Agotados los reintentos: ahora si se avisa y se deja el boton manual.
+      window._ultimoExtraMsgId=_extraMsgId||null;
+      var m2=document.getElementById("saved-msg");
+      if(m2){
+        m2.innerHTML=_MSG_ERROR;
+        m2.style.color="#c0392b";m2.style.background="#fdecea";m2.style.padding="4px 10px";m2.style.borderRadius="6px";
+      }
+      if(_extraMsgId){var em2=document.getElementById(_extraMsgId);if(em2){em2.innerHTML=_MSG_ERROR;em2.style.color="#c0392b";}}
     });
 }
 
