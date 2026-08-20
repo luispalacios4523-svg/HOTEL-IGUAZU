@@ -357,7 +357,7 @@ td{padding:4px 6px;vertical-align:middle;}
         </div>
         <input type="text" id="g-desc-libre" placeholder="Detalle del gasto" style="width:220px;padding:7px 9px;border:1px solid #ccc;border-radius:6px;font-size:14px;"/>
       </div>
-      <button class="tbtn tbtn-warn" onclick="registrarGasto()" style="padding:8px 18px;font-size:14px;">+ Registrar</button>
+      <button id="btn-registrar-gasto" class="tbtn tbtn-warn" onclick="registrarGasto()" style="padding:8px 18px;font-size:14px;">+ Registrar</button>
       <span id="gasto-msg" style="font-size:13px;margin-left:8px;"></span>
     </div>
   </div>
@@ -597,24 +597,28 @@ function _fijarBase(){
 // El aviso de la barra superior queda lejos de donde se esta escribiendo. Este
 // aparece pegado a la fila que se acaba de tocar. Va en posicion fija sobre la
 // pagina, asi que no altera la tabla ni se pierde cuando esta se redibuja.
-var _avisoHab=null,_avisoTimer=null;
+// Elemento al que se pega el aviso: la fila de una habitacion ("mr201") o el
+// boton de registrar un gasto. Lo fija quien inicia el cambio.
+var _avisoAncla=null,_avisoTimer=null;
 
 function _posAviso(){
   var el=document.getElementById("aviso-fila");
-  if(!el||_avisoHab===null)return;
-  var fila=document.getElementById("mr"+_avisoHab);
-  if(!fila){el.style.display="none";return;}
-  var r=fila.getBoundingClientRect();
-  // Si la fila quedo fuera de la pantalla al desplazar, se oculta el aviso.
+  if(!el||!_avisoAncla)return;
+  var ancla=document.getElementById(_avisoAncla);
+  if(!ancla){el.style.display="none";return;}
+  // En una fila de habitacion el aviso va junto a la columna del VALOR, que es
+  // donde esta mirando el usuario. En cualquier otro caso, al lado del elemento.
+  var ref=(ancla.tagName==="TR"&&ancla.cells&&ancla.cells[4])?ancla.cells[4]:ancla;
+  var r=ref.getBoundingClientRect();
   if(r.bottom<60||r.top>window.innerHeight-10){el.style.display="none";return;}
   el.style.display="block";
   el.style.top=Math.max(4,r.top+(r.height/2)-14)+"px";
-  el.style.left=(r.left+100)+"px";
+  el.style.left=(r.right+10)+"px";
 }
 
 function mostrarAvisoFila(texto,color,fondo,borde,ocultarMs){
-  if(_avisoHab===null&&_habEditando===null)return;
-  if(_habEditando!==null)_avisoHab=_habEditando;
+  if(!_avisoAncla&&!_habEditando)return;
+  if(_habEditando)_avisoAncla="mr"+_habEditando;
   var el=document.getElementById("aviso-fila");
   if(!el){
     el=document.createElement("div");
@@ -633,7 +637,7 @@ function mostrarAvisoFila(texto,color,fondo,borde,ocultarMs){
     _avisoTimer=setTimeout(function(){
       var e=document.getElementById("aviso-fila");
       if(e)e.style.display="none";
-      _avisoHab=null;
+      _avisoAncla=null;
     },ocultarMs);
   }
 }
@@ -2365,6 +2369,8 @@ function registrarGasto(){
   gastosDetalle.push({id:Date.now(),fecha:fecha,monto:monto,cat:cat,desc:desc,pago:pago,creadoPor:sesion.nombre||sesion.usuario||"",creadoEn:_tsG});
   document.getElementById("g-monto").value="";
   document.getElementById("g-pago").value="";
+  // El aviso flotante se ancla al boton de registrar, no a una habitacion.
+  _habEditando=null;_avisoAncla="btn-registrar-gasto";
   limpiarChips();guardar("gasto-msg");renderGastosTab();calcTotales();
 }
 function verTodosGastos(){document.getElementById("filtro-cat").value="";document.getElementById("filtro-nombre").value="";document.getElementById("filtro-mes").value="";renderGastosTab();}
