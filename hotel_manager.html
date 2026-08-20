@@ -613,7 +613,9 @@ function _posAviso(){
   if(r.bottom<60||r.top>window.innerHeight-10){el.style.display="none";return;}
   el.style.display="block";
   el.style.top=Math.max(4,r.top+(r.height/2)-14)+"px";
-  el.style.left=(r.right+10)+"px";
+  // A la IZQUIERDA del valor. Se mide el ancho ya visible para colocarlo
+  // completo, y no se deja salir del borde de la pantalla.
+  el.style.left=Math.max(4,r.left-el.offsetWidth-10)+"px";
 }
 
 function mostrarAvisoFila(texto,color,fondo,borde,ocultarMs){
@@ -2369,8 +2371,8 @@ function registrarGasto(){
   gastosDetalle.push({id:Date.now(),fecha:fecha,monto:monto,cat:cat,desc:desc,pago:pago,creadoPor:sesion.nombre||sesion.usuario||"",creadoEn:_tsG});
   document.getElementById("g-monto").value="";
   document.getElementById("g-pago").value="";
-  // El aviso flotante se ancla al boton de registrar, no a una habitacion.
-  _habEditando=null;_avisoAncla="btn-registrar-gasto";
+  // El aviso flotante se ancla al campo del monto, no a una habitacion.
+  _habEditando=null;_avisoAncla="g-monto";
   limpiarChips();guardar("gasto-msg");renderGastosTab();calcTotales();
 }
 function verTodosGastos(){document.getElementById("filtro-cat").value="";document.getElementById("filtro-nombre").value="";document.getElementById("filtro-mes").value="";renderGastosTab();}
