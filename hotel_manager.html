@@ -1290,7 +1290,13 @@ function renderTable(){
       var expirada=!modoAyer&&r.fechaEntrada&&r.fechaEntrada<fHoyStr&&calcSalida(r.fechaEntrada,parseInt(r.nochesTotal)||1)<=fHoyStr;
       var rVis=expirada?{fechaEntrada:"",valor:"",canal:"",pago:"",nochesTotal:1}:r;
       var nombreVis=expirada?"":nombre;var okVis=!expirada&&ok;
-      html+="<tr class='main-row"+(okVis?" ocupada":"")+"' id='mr"+h+"'>";
+      // En MODO AYER, una habitacion cuya entrada es POSTERIOR al dia que se
+      // esta reconstruyendo pertenece a hoy: ese huesped no estaba ayer. Se
+      // muestra apagada y sin poder tocarse, porque cada habitacion guarda un
+      // solo huesped y escribir encima borraria el registro de hoy.
+      var esDeHoy=modoAyer&&r.fechaEntrada&&r.fechaEntrada>getFechaDefault()&&(nombre||nm(r.valor)>0);
+      html+="<tr class='main-row"+(okVis?" ocupada":"")+"' id='mr"+h+"'"
+        +(esDeHoy?" style='opacity:.45;pointer-events:none;background:#f7f7f7;'":"")+">";
       html+="<td><button class='hbtn' onclick='toggleD("+h+")'>"+h+"</button></td>";
       html+="<td><span class='dot "+(okVis?"ok":"r")+"' id='dot"+h+"'>"+(okVis?"&#10003;":"R")+"</span></td>";
       // FECHA - siempre visible y editable
@@ -1325,6 +1331,12 @@ function renderTable(){
         html+="<td class='cv' style='text-align:right'><span style='color:#aaa;font-size:13px'>"+fmt(nm(r.valor))+"</span><br><span style='color:#aaa;font-size:10px'>pag."+etiqFecha+"</span>";
         if(_totAb>0)html+="<br><span style='color:#2d6a3f;font-size:10px;font-weight:bold'>+"+fmt(_totAb)+" abonado</span>";
         html+="<br><button onclick='abrirAbono("+h+")' style='margin-top:3px;background:#e3f0ff;border:1px solid #1a6bb5;color:#1a3a6b;border-radius:4px;padding:1px 8px;font-size:10px;cursor:pointer'>+ Abono</button></td>";
+      } else if(esDeHoy){
+        // Registro de hoy visto desde modo ayer: se informa el dia al que
+        // pertenece, sin campo editable.
+        var _pf=r.fechaEntrada.split("-");
+        html+="<td class='cv' style='text-align:right'><span style='color:#888;font-size:13px'>"+fmt(nm(r.valor))+"</span>"
+          +"<br><span style='color:#888;font-size:10px'>ingr."+_pf[2]+"/"+_pf[1]+"</span></td>";
       } else {
         html+="<td class='cv' style='text-align:right'><input class='ci val' type='number' value='"+esc(rVis.valor)+"' placeholder='0' style='width:110px;text-align:right' oninput='updHab("+h+",\"valor\",this.value)' onblur='validarPago("+h+",this)'></td>";
       }
