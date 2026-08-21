@@ -125,7 +125,7 @@ td{padding:4px 6px;vertical-align:middle;}
   Clic en el n&#250;mero de habitaci&#243;n &#8594; escanea la c&#233;dula
 </div>
 <div id="banner-modo-ayer" style="display:none;align-items:center;gap:10px;background:#f5a623;color:#fff;padding:8px 16px;font-size:13px;font-weight:bold;">
-  ⚠️ <span></span>
+  ⚠️ <span></span><span id="nota-ocultas" style="font-weight:normal;opacity:.9;"></span>
 </div>
 <div class="table-wrap">
 <table>
@@ -1281,6 +1281,8 @@ function renderTable(){
     cambio=true;
   });
   if(cambio)guardar();
+  // Habitaciones que en modo ayer no se dibujan por estar ocupadas hoy.
+  var _ocultasHoy=0;
   [2,3,4].forEach(function(piso){
     html+="<tr class='piso-row'><td colspan='9'>PISO "+piso+"</td></tr>";
     PISOS[piso].forEach(function(h){
@@ -1291,12 +1293,13 @@ function renderTable(){
       var rVis=expirada?{fechaEntrada:"",valor:"",canal:"",pago:"",nochesTotal:1}:r;
       var nombreVis=expirada?"":nombre;var okVis=!expirada&&ok;
       // En MODO AYER, una habitacion cuya entrada es POSTERIOR al dia que se
-      // esta reconstruyendo pertenece a hoy: ese huesped no estaba ayer. Se
-      // muestra apagada y sin poder tocarse, porque cada habitacion guarda un
-      // solo huesped y escribir encima borraria el registro de hoy.
+      // esta reconstruyendo pertenece a hoy: ese huesped no estaba ayer, asi
+      // que su fila no se dibuja. Al no existir la fila tampoco hay forma de
+      // escribir encima y borrar el registro de hoy, que es el riesgo de
+      // mostrarla vacia teniendo una sola posicion por habitacion.
       var esDeHoy=modoAyer&&r.fechaEntrada&&r.fechaEntrada>getFechaDefault()&&(nombre||nm(r.valor)>0);
-      html+="<tr class='main-row"+(okVis?" ocupada":"")+"' id='mr"+h+"'"
-        +(esDeHoy?" style='opacity:.45;pointer-events:none;background:#f7f7f7;'":"")+">";
+      if(esDeHoy){_ocultasHoy++;return;}
+      html+="<tr class='main-row"+(okVis?" ocupada":"")+"' id='mr"+h+"'>";
       html+="<td><button class='hbtn' onclick='toggleD("+h+")'>"+h+"</button></td>";
       html+="<td><span class='dot "+(okVis?"ok":"r")+"' id='dot"+h+"'>"+(okVis?"&#10003;":"R")+"</span></td>";
       // FECHA - siempre visible y editable
@@ -1331,12 +1334,6 @@ function renderTable(){
         html+="<td class='cv' style='text-align:right'><span style='color:#aaa;font-size:13px'>"+fmt(nm(r.valor))+"</span><br><span style='color:#aaa;font-size:10px'>pag."+etiqFecha+"</span>";
         if(_totAb>0)html+="<br><span style='color:#2d6a3f;font-size:10px;font-weight:bold'>+"+fmt(_totAb)+" abonado</span>";
         html+="<br><button onclick='abrirAbono("+h+")' style='margin-top:3px;background:#e3f0ff;border:1px solid #1a6bb5;color:#1a3a6b;border-radius:4px;padding:1px 8px;font-size:10px;cursor:pointer'>+ Abono</button></td>";
-      } else if(esDeHoy){
-        // Registro de hoy visto desde modo ayer: se informa el dia al que
-        // pertenece, sin campo editable.
-        var _pf=r.fechaEntrada.split("-");
-        html+="<td class='cv' style='text-align:right'><span style='color:#888;font-size:13px'>"+fmt(nm(r.valor))+"</span>"
-          +"<br><span style='color:#888;font-size:10px'>ingr."+_pf[2]+"/"+_pf[1]+"</span></td>";
       } else {
         html+="<td class='cv' style='text-align:right'><input class='ci val' type='number' value='"+esc(rVis.valor)+"' placeholder='0' style='width:110px;text-align:right' oninput='updHab("+h+",\"valor\",this.value)' onblur='validarPago("+h+",this)'></td>";
       }
@@ -1355,7 +1352,14 @@ function renderTable(){
       html+="</tr>";
     });
   });
-  tb.innerHTML=html;_renderizando=false;calcTotales();
+  tb.innerHTML=html;
+  // Avisar en el banner cuantas habitaciones quedaron fuera: si no se dice,
+  // una habitacion desaparecida de la lista se presta a confusion.
+  var _bn=document.getElementById("nota-ocultas");
+  if(_bn)_bn.textContent=(modoAyer&&_ocultasHoy>0)
+    ?("  ·  "+_ocultasHoy+(_ocultasHoy===1?" habitación ocupada hoy no se muestra":" habitaciones ocupadas hoy no se muestran"))
+    :"";
+  _renderizando=false;calcTotales();
 }
 
 function renderPasCard(h,i,p,total){
