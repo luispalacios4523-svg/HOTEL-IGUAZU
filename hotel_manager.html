@@ -2105,10 +2105,11 @@ function calcTotales(){
   var fHoyStr2=getFechaDefault();
   HABS.forEach(function(h){
     var r=reg[h];
-    // Excluir las habitaciones pagadas en un dia anterior al que se trabaja.
-    // Antes esto solo se aplicaba en modo hoy: en modo ayer, una habitacion
-    // pagada dias atras sumaba su valor al total de ayer y lo inflaba.
-    if(r.fechaEntrada&&r.fechaEntrada<fHoyStr2)return;
+    // Solo cuentan las habitaciones que entraron EXACTAMENTE el dia que se
+    // esta trabajando. Antes se excluian unicamente las de dias anteriores, de
+    // modo que en modo ayer los huespedes ingresados hoy —con fecha posterior—
+    // sumaban su valor al total de ayer y lo inflaban.
+    if(r.fechaEntrada&&r.fechaEntrada!==fHoyStr2)return;
     var v=nm(r.valor);totalHab+=v;if(r.pago&&tots[r.pago]!==undefined)tots[r.pago]+=v;
   });
   var gast=gastos.reduce(function(a,g){return a+g.monto;},0);
