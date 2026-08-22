@@ -944,6 +944,15 @@ function verificarBackup(){
   });
 }
 function nm(v){return parseFloat(v)||0;}
+// Valor tal como se MUESTRA en el campo: con miles separados, o vacio si es
+// cero. Lo que se guarda es siempre el numero pelado: nm() usa parseFloat y
+// "150.000" se interpretaria como 150.
+function _fmtCampo(v){var n=nm(v);return n>0?n.toLocaleString("es-CO"):"";}
+function updValor(h,input){
+  var crudo=(input.value||"").replace(/\D/g,"");   // solo digitos
+  input.value=crudo?Number(crudo).toLocaleString("es-CO"):"";
+  updHab(h,"valor",crudo);
+}
 function fmt(v){return "$"+Math.round(v).toLocaleString("es-CO");}
 function esc(v){if(!v)return "";return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 function canalOpts(sel){return CANALES.map(function(c){return "<option value='"+c+"'"+(sel===c?" selected":"")+">"+(c||"&mdash;")+"</option>";}).join("");}
@@ -1338,7 +1347,10 @@ function renderTable(){
         if(_totAb>0)html+="<br><span style='color:#2d6a3f;font-size:10px;font-weight:bold'>+"+fmt(_totAb)+" abonado</span>";
         html+="<br><button onclick='abrirAbono("+h+")' style='margin-top:3px;background:#e3f0ff;border:1px solid #1a6bb5;color:#1a3a6b;border-radius:4px;padding:1px 8px;font-size:10px;cursor:pointer'>+ Abono</button></td>";
       } else {
-        html+="<td class='cv' style='text-align:right'><input class='ci val' type='number' value='"+esc(rVis.valor)+"' placeholder='0' style='width:110px;text-align:right' oninput='updHab("+h+",\"valor\",this.value)' onblur='validarPago("+h+",this)'></td>";
+        // Campo de texto, no numerico, para poder mostrar los miles separados.
+        // Vacio cuando no hay valor: antes traia un 0 que se pegaba adelante
+        // del primer digito escrito y habia que borrarlo.
+        html+="<td class='cv' style='text-align:right'><input class='ci val' type='text' inputmode='numeric' value='"+esc(_fmtCampo(rVis.valor))+"' placeholder='0' style='width:110px;text-align:right' oninput='updValor("+h+",this)' onblur='validarPago("+h+",this)'></td>";
       }
       // CANAL
       html+="<td><select class='ci' onchange='updHab("+h+",\"canal\",this.value)' style='width:100px'>"+canalOpts(rVis.canal)+"</select></td>";
@@ -1897,7 +1909,9 @@ function updHab(h,f,v){
 var _habBloqueada=null;
 
 function validarPago(h,input){
-  if(nm(input.value)>0){
+  // Se lee el valor guardado, no el texto del campo: ahora se muestra con
+  // miles separados y nm("150.000") daria 150.
+  if(nm(reg[h].valor)>0){
     var mr=document.getElementById("mr"+h);
     var faltaCanal=!reg[h].canal||reg[h].canal==="";
     var faltaPago=!reg[h].pago;
