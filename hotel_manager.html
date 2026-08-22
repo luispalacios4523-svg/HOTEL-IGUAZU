@@ -1293,13 +1293,16 @@ function renderTable(){
       var rVis=expirada?{fechaEntrada:"",valor:"",canal:"",pago:"",nochesTotal:1}:r;
       var nombreVis=expirada?"":nombre;var okVis=!expirada&&ok;
       // En MODO AYER, una habitacion cuya entrada es POSTERIOR al dia que se
-      // esta reconstruyendo pertenece a hoy: ese huesped no estaba ayer, asi
-      // que su fila no se dibuja. Al no existir la fila tampoco hay forma de
-      // escribir encima y borrar el registro de hoy, que es el riesgo de
-      // mostrarla vacia teniendo una sola posicion por habitacion.
+      // reconstruye esta ocupada por un huesped de hoy. NO se oculta la fila:
+      // ocultarla dejaba fuera habitaciones que el usuario necesita para
+      // registrar los huespedes de ayer, y un registro recien creado al que se
+      // le asignaba mal la fecha desaparecia de la vista como si se hubiera
+      // perdido. Se muestra atenuada y sin responder al teclado, que evita
+      // igual el riesgo de escribir encima del registro de hoy.
       var esDeHoy=modoAyer&&r.fechaEntrada&&r.fechaEntrada>getFechaDefault()&&(nombre||nm(r.valor)>0);
-      if(esDeHoy){_ocultasHoy++;return;}
-      html+="<tr class='main-row"+(okVis?" ocupada":"")+"' id='mr"+h+"'>";
+      if(esDeHoy)_ocultasHoy++;
+      html+="<tr class='main-row"+(okVis?" ocupada":"")+"' id='mr"+h+"'"
+        +(esDeHoy?" style='opacity:.5;background:#f7f7f7;'":"")+">";
       html+="<td><button class='hbtn' onclick='toggleD("+h+")'>"+h+"</button></td>";
       html+="<td><span class='dot "+(okVis?"ok":"r")+"' id='dot"+h+"'>"+(okVis?"&#10003;":"R")+"</span></td>";
       // FECHA - siempre visible y editable
@@ -1357,7 +1360,7 @@ function renderTable(){
   // una habitacion desaparecida de la lista se presta a confusion.
   var _bn=document.getElementById("nota-ocultas");
   if(_bn)_bn.textContent=(modoAyer&&_ocultasHoy>0)
-    ?("  ·  "+_ocultasHoy+(_ocultasHoy===1?" habitación ocupada hoy no se muestra":" habitaciones ocupadas hoy no se muestran"))
+    ?("  ·  "+_ocultasHoy+(_ocultasHoy===1?" habitación en gris está ocupada por un huésped de hoy":" habitaciones en gris están ocupadas por huéspedes de hoy"))
     :"";
   _renderizando=false;calcTotales();
 }
@@ -3079,6 +3082,10 @@ function setNochesModal(h,v){
 }
 
 function setFechaModal(h,fecha){
+  // En MODO AYER la fecha es fija. La tabla ya no deja editarla, pero este
+  // selector del modal escribia cualquier dia: por aqui un huesped creado en
+  // modo ayer podia quedar fechado hoy y salir del dia que se reconstruye.
+  if(modoAyer)fecha=getFechaDefault();
   reg[h].fechaEntrada=fecha;
   var mr=document.getElementById("mr"+h);
   if(mr){var fi=mr.querySelector("input[type='date']");if(fi)fi.value=fecha;}
