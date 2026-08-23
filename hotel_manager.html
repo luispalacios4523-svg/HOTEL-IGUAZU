@@ -1310,8 +1310,12 @@ function renderTable(){
       // igual el riesgo de escribir encima del registro de hoy.
       var esDeHoy=modoAyer&&r.fechaEntrada&&r.fechaEntrada>getFechaDefault()&&(nombre||nm(r.valor)>0);
       if(esDeHoy)_ocultasHoy++;
+      // Atenuada y sin responder al teclado: en el flujo normal lo de ayer se
+      // termina antes de registrar lo de hoy, asi que esto casi nunca aparece.
+      // Cuando aparece —por haber empezado el dia sin cerrar el anterior— deja
+      // ver que esa habitacion ya es de hoy, y evita escribir encima de ella.
       html+="<tr class='main-row"+(okVis?" ocupada":"")+"' id='mr"+h+"'"
-        +(esDeHoy?" style='opacity:.5;background:#f7f7f7;'":"")+">";
+        +(esDeHoy?" style='opacity:.5;background:#f7f7f7;pointer-events:none;'":"")+">";
       html+="<td><button class='hbtn' onclick='toggleD("+h+")'>"+h+"</button></td>";
       html+="<td><span class='dot "+(okVis?"ok":"r")+"' id='dot"+h+"'>"+(okVis?"&#10003;":"R")+"</span></td>";
       // FECHA - siempre visible y editable
