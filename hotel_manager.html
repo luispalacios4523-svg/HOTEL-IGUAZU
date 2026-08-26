@@ -1349,7 +1349,12 @@ function renderTable(){
         },0);
         html+="<td class='cv' style='text-align:right'><span style='color:#aaa;font-size:13px'>"+fmt(nm(r.valor))+"</span><br><span style='color:#aaa;font-size:10px'>pag."+etiqFecha+"</span>";
         if(_totAb>0)html+="<br><span style='color:#2d6a3f;font-size:10px;font-weight:bold'>+"+fmt(_totAb)+" abonado</span>";
-        html+="<br><button onclick='abrirAbono("+h+")' style='margin-top:3px;background:#e3f0ff;border:1px solid #1a6bb5;color:#1a3a6b;border-radius:4px;padding:1px 8px;font-size:10px;cursor:pointer'>+ Abono</button></td>";
+        html+="<br><button onclick='abrirAbono("+h+")' style='margin-top:3px;background:#e3f0ff;border:1px solid #1a6bb5;color:#1a3a6b;border-radius:4px;padding:1px 8px;font-size:10px;cursor:pointer'>+ Abono</button>";
+        // Sin esto el valor no se puede corregir por ningun lado: en ventas
+        // esta en gris, y en el historial la fila no tiene botones mientras el
+        // huesped siga activo. Un monto mal escrito quedaba inamovible.
+        if(sesion.rol==="admin")html+=" <button onclick='editarValorHab("+h+")' title='Corregir el valor del día de entrada' style='margin-top:3px;background:#f0f0f0;border:1px solid #aaa;color:#555;border-radius:4px;padding:1px 6px;font-size:10px;cursor:pointer'>✏️</button>";
+        html+="</td>";
       } else {
         // Campo de texto, no numerico, para poder mostrar los miles separados.
         // Vacio cuando no hay valor: antes traia un 0 que se pegaba adelante
@@ -1923,6 +1928,24 @@ function updHab(h,f,v){
 }
 
 var _habBloqueada=null;
+
+// Corregir el valor de una habitacion cuya entrada es de dias anteriores. Ese
+// campo se muestra en gris para que un pago de hoy no se atribuya al dia de
+// entrada, pero entonces un monto mal escrito quedaba sin forma de arreglarse.
+function editarValorHab(h){
+  if(sesion.rol!=="admin"){alert("Solo el administrador puede corregir este valor.");return;}
+  var r=reg[h];var pf=(r.fechaEntrada||"").split("-");
+  var dia=(pf.length===3)?(pf[2]+"/"+pf[1]+"/"+pf[0]):(r.fechaEntrada||"");
+  var v=prompt("Corregir el valor de la habitación "+h+"\n\n"
+    +"Este monto pertenece a la caja del "+dia+", el día de entrada del huésped.\n"
+    +"Si se trata de un pago recibido hoy, cancele y use el botón + Abono.\n\n"
+    +"Valor:",nm(r.valor));
+  if(v===null)return;
+  var n=parseFloat(String(v).replace(/\D/g,""))||0;
+  reg[h].valor=String(n);
+  _habEditando=h;
+  guardar();renderTable();calcTotales();
+}
 
 function validarPago(h,input){
   // Se lee el valor guardado, no el texto del campo: ahora se muestra con
