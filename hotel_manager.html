@@ -1354,7 +1354,19 @@ function renderTable(){
         // Campo de texto, no numerico, para poder mostrar los miles separados.
         // Vacio cuando no hay valor: antes traia un 0 que se pegaba adelante
         // del primer digito escrito y habia que borrarlo.
-        html+="<td class='cv' style='text-align:right'><input class='ci val' type='text' inputmode='numeric' value='"+esc(_fmtCampo(rVis.valor))+"' placeholder='0' style='width:110px;text-align:right' oninput='updValor("+h+",this)' onblur='validarPago("+h+",this)'></td>";
+        html+="<td class='cv' style='text-align:right'><input class='ci val' type='text' inputmode='numeric' value='"+esc(_fmtCampo(rVis.valor))+"' placeholder='0' style='width:110px;text-align:right' oninput='updValor("+h+",this)' onblur='validarPago("+h+",this)'>";
+        // Un huesped que entro dias atras y todavia no ha pagado nada tampoco
+        // tenia boton de abono: solo aparecia con valor mayor a cero. Al no
+        // haber alternativa, el pago se escribia en el campo y quedaba fechado
+        // el dia de entrada en vez del dia en que se recibio.
+        if(!expirada&&r.fechaEntrada&&r.fechaEntrada<getFechaDefault()){
+          var _abPrev=abonos.reduce(function(s,a){
+            return (String(a.hab)===String(h)&&(a.entrada||"")===r.fechaEntrada)?s+nm(a.monto):s;
+          },0);
+          if(_abPrev>0)html+="<br><span style='color:#2d6a3f;font-size:10px;font-weight:bold'>+"+fmt(_abPrev)+" abonado</span>";
+          html+="<br><button onclick='abrirAbono("+h+")' style='margin-top:3px;background:#e3f0ff;border:1px solid #1a6bb5;color:#1a3a6b;border-radius:4px;padding:1px 8px;font-size:10px;cursor:pointer'>+ Abono</button>";
+        }
+        html+="</td>";
       }
       // CANAL
       html+="<td><select class='ci' onchange='updHab("+h+",\"canal\",this.value)' style='width:100px'>"+canalOpts(rVis.canal)+"</select></td>";
