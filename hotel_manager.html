@@ -3636,53 +3636,96 @@ function confirmarMigracionNom(){
 
 function openUtilidadesNetas(){
   var hoy=new Date();
-  var mesDefault=hoy.getFullYear()+"-"+String(hoy.getMonth()+1).padStart(2,"0");
+  var y=hoy.getFullYear(),m=hoy.getMonth();
+  var _d=function(f){return f.getFullYear()+"-"+String(f.getMonth()+1).padStart(2,"0")+"-"+String(f.getDate()).padStart(2,"0");};
   var html="<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;'>";
   html+="<h3 style='margin:0;'>&#128202; Utilidades Netas</h3>";
   html+="<button class='tbtn' onclick='closeOverlay()'>&#10005; Cerrar</button>";
   html+="</div>";
-  html+="<div style='display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;'>";
+  // Se conservan las dos formas de consultar: por mes, que es lo habitual, y
+  // por rango libre para cortes de quincena, temporada o varios meses.
+  html+="<div style='display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap;'>";
   html+="<label style='font-size:13px;font-weight:bold;color:#555;'>Mes:</label>";
-  html+="<input type='month' id='util-mes' value='"+mesDefault+"' style='padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:14px;'/>";
+  html+="<input type='month' id='util-mes' value='"+y+"-"+String(m+1).padStart(2,"0")+"' onchange='mesUtil()' style='padding:7px 10px;border:1px solid #1a6bb5;border-radius:6px;font-size:14px;'/>";
+  html+="<span style='color:#aaa;font-size:12px;'>o un rango:</span>";
+  html+="</div>";
+  html+="<div style='display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap;'>";
+  html+="<label style='font-size:13px;font-weight:bold;color:#555;'>Desde:</label>";
+  html+="<input type='date' id='util-desde' value='"+_d(new Date(y,m,1))+"' style='padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:14px;'/>";
+  html+="<label style='font-size:13px;font-weight:bold;color:#555;'>Hasta:</label>";
+  html+="<input type='date' id='util-hasta' value='"+_d(new Date(y,m+1,0))+"' style='padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:14px;'/>";
   html+="<button class='tbtn tbtn-blue' onclick='calcUtilidadesNetas()' style='font-weight:bold;'>Calcular</button>";
+  html+="</div>";
+  html+="<div style='display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;'>";
+  [["Este mes",_d(new Date(y,m,1)),_d(new Date(y,m+1,0))],
+   ["Mes anterior",_d(new Date(y,m-1,1)),_d(new Date(y,m,0))],
+   ["Este año",y+"-01-01",y+"-12-31"],
+   ["Año anterior",(y-1)+"-01-01",(y-1)+"-12-31"]].forEach(function(b){
+    html+="<button class='tbtn' onclick=\"rangoUtil('"+b[1]+"','"+b[2]+"')\" style='font-size:12px;padding:4px 12px;'>"+b[0]+"</button>";
+  });
   html+="</div>";
   html+="<div id='util-resultado'></div>";
   showOverlay(html,true);
   setTimeout(function(){calcUtilidadesNetas();},80);
 }
 
-function calcUtilidadesNetas(){
-  var mes=(document.getElementById("util-mes")||{}).value||"";
-  if(!mes){alert("Selecciona un mes.");return;}
+function rangoUtil(desde,hasta){
+  var d=document.getElementById("util-desde"),h=document.getElementById("util-hasta");
+  if(d)d.value=desde;if(h)h.value=hasta;
+  calcUtilidadesNetas();
+}
 
-  var partes=mes.split("-");
-  var nombreMes=new Date(+partes[0],+partes[1]-1,1).toLocaleDateString("es-CO",{month:"long",year:"numeric"}).toUpperCase();
+// Elegir un mes llena el rango con su primer y ultimo dia, de modo que el
+// calculo sigue siendo uno solo y no hay dos filtros que puedan discrepar.
+function mesUtil(){
+  var v=(document.getElementById("util-mes")||{}).value||"";
+  if(!v)return;
+  var p=v.split("-"),y=+p[0],m=+p[1]-1;
+  var _d=function(f){return f.getFullYear()+"-"+String(f.getMonth()+1).padStart(2,"0")+"-"+String(f.getDate()).padStart(2,"0");};
+  rangoUtil(_d(new Date(y,m,1)),_d(new Date(y,m+1,0)));
+}
+
+function calcUtilidadesNetas(){
+  var desde=(document.getElementById("util-desde")||{}).value||"";
+  var hasta=(document.getElementById("util-hasta")||{}).value||"";
+  if(!desde||!hasta){alert("Indica las dos fechas del rango.");return;}
+  if(desde>hasta){alert("La fecha 'Desde' es posterior a 'Hasta'.");return;}
+
+  // Las fechas se guardan como AAAA-MM-DD, asi que comparar los textos
+  // ordena igual que comparar fechas.
+  var enRango=function(f){f=f||"";return f>=desde&&f<=hasta;};
+  var _fmtF=function(f){var p=f.split("-");return p[2]+"/"+p[1]+"/"+p[0];};
+  var nombreMes=_fmtF(desde)+"  —  "+_fmtF(hasta);
 
   // ── TOTAL VENTAS (todas las formas de pago) ──
   // Habitaciones archivadas: filtrar por fecha de ENTRADA (pago al check-in)
-  var habArch=historialesEst.filter(function(e){return (e.entrada||"").startsWith(mes);});
+  var habArch=historialesEst.filter(function(e){return enRango(e.entrada);});
   var totalHabArch=habArch.reduce(function(a,e){return a+nm(e.valor);},0);
-  // Habitaciones activas actualmente en el hotel (aún no archivadas) con entrada en el mes
+  // Habitaciones activas actualmente en el hotel (aún no archivadas)
   var totalHabAct=0;
   HABS.forEach(function(h){
     var v=nm(reg[h].valor);
-    var entrada=(reg[h].fechaEntrada||"");
-    if(v>0&&entrada.startsWith(mes))totalHabAct+=v;
+    if(v>0&&enRango(reg[h].fechaEntrada))totalHabAct+=v;
   });
-  // Ventas tienda del mes
+  // Abonos: pagos recibidos despues del dia de entrada. Cuentan en la fecha en
+  // que se recibieron. No se estaban sumando en esta pantalla.
+  var totalAbonos=abonos.reduce(function(a,x){return enRango(x.fecha)?a+nm(x.monto):a;},0);
+  // Ventas de tienda en el rango
   var ventasTienda=historialVentas.filter(function(v){
     var f=v.fecha||"";
-    if(f.startsWith(mes))return true;
-    var p=f.split("/");if(p.length>=3){var ym=p[2].substring(0,4)+"-"+p[1].padStart(2,"0");return ym===mes;}
+    if(enRango(f))return true;
+    // Formato antiguo dd/mm/aaaa: se normaliza antes de comparar.
+    var p=f.split("/");
+    if(p.length>=3)return enRango(p[2].substring(0,4)+"-"+p[1].padStart(2,"0")+"-"+p[0].padStart(2,"0"));
     return false;
   });
   var totalTienda=ventasTienda.reduce(function(a,v){return a+v.total;},0);
-  var totalVentas=totalHabArch+totalHabAct;
+  var totalVentas=totalHabArch+totalHabAct+totalAbonos;
 
   // ── GASTOS SP, MTO, NOM, ASEO, BOOK + cualquier categoría que empiece con NOM ──
   var CATS_UTIL=["SP","MTO","NOM","ASEO","BOOK"];
   Object.keys(CATS_CUSTOM).forEach(function(c){if(c.toUpperCase().startsWith("NOM")&&CATS_UTIL.indexOf(c)<0)CATS_UTIL.push(c);});
-  var gastosMes=gastosDetalle.filter(function(g){return (g.fecha||"").startsWith(mes);});
+  var gastosMes=gastosDetalle.filter(function(g){return enRango(g.fecha);});
   var porCat={};
   CATS_UTIL.forEach(function(c){porCat[c]=0;});
   gastosMes.forEach(function(g){if(porCat[g.cat]!==undefined)porCat[g.cat]+=g.monto;});
@@ -3708,6 +3751,7 @@ function calcUtilidadesNetas(){
   var tarjetas=[
     {label:"Habitaciones archivadas",val:totalHabArch,bg:"#e3f0ff",col:"#1a4a80"},
     {label:"Habitaciones activas (aún en el hotel)",val:totalHabAct,bg:"#e3f0ff",col:"#1a4a80"},
+    {label:"Abonos recibidos",val:totalAbonos,bg:"#e3f0ff",col:"#1a4a80"},
     {label:"Tienda",val:totalTienda,bg:"#e3f0ff",col:"#1a4a80"},
     {label:"TOTAL VENTAS",val:totalVentas,bg:"#d4edda",col:"#2d6a3f",big:true},
     {label:"Gastos (SP+MTO+NOM+ASEO+BOOK)",val:totalGastosUtil,bg:"#fde",col:"#c00",big:true},
