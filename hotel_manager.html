@@ -368,7 +368,10 @@ td{padding:4px 6px;vertical-align:middle;}
       <option value="ASEO">ASEO</option><option value="OTR">OTR</option><option value="BOOK">BOOK</option><option value="LIQ">LIQ</option>
     </select>
     <input type="text" id="filtro-nombre" oninput="renderGastosTab()" placeholder="&#128269; Buscar en todos los campos..." style="padding:6px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px;width:260px;"/>
-    <input type="month" id="filtro-mes" onchange="renderGastosTab()" style="padding:6px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px;"/>
+    <input type="month" id="filtro-mes" onchange="filtroMesGastos()" style="padding:6px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px;"/>
+    <span style="font-size:12px;color:#aaa;">o rango:</span>
+    <input type="date" id="filtro-desde" title="Desde" onchange="filtroRangoGastos()" style="padding:6px 8px;border:1px solid #ccc;border-radius:6px;font-size:13px;"/>
+    <input type="date" id="filtro-hasta" title="Hasta" onchange="filtroRangoGastos()" style="padding:6px 8px;border:1px solid #ccc;border-radius:6px;font-size:13px;"/>
     <button class="tbtn" onclick="verTodosGastos()">Ver todos</button>
     <button class="tbtn" onclick="exportarGastos()">&#128203; Reporte</button>
     <button class="tbtn tbtn-green" onclick="reporteMensualGastos()" style="font-weight:bold;">&#128202; Reporte mensual</button>
@@ -2454,14 +2457,38 @@ function registrarGasto(){
   _habEditando=null;_avisoAncla="gr"+_idG;
   guardar("gasto-msg");calcTotales();
 }
-function verTodosGastos(){document.getElementById("filtro-cat").value="";document.getElementById("filtro-nombre").value="";document.getElementById("filtro-mes").value="";renderGastosTab();}
+// Mes y rango son dos formas de acotar lo mismo: al usar una se limpia la
+// otra, para que no queden dos condiciones de fecha peleando entre si y
+// devolviendo una lista vacia sin explicacion.
+function filtroMesGastos(){
+  var d=document.getElementById("filtro-desde"),h=document.getElementById("filtro-hasta");
+  if(d)d.value="";if(h)h.value="";
+  renderGastosTab();
+}
+function filtroRangoGastos(){
+  var m=document.getElementById("filtro-mes");
+  if(m)m.value="";
+  renderGastosTab();
+}
+function verTodosGastos(){
+  ["filtro-cat","filtro-nombre","filtro-mes","filtro-desde","filtro-hasta"].forEach(function(id){
+    var e=document.getElementById(id);if(e)e.value="";
+  });
+  renderGastosTab();
+}
 function renderGastosTab(){
   var filtCat=document.getElementById("filtro-cat").value;
   var filtN=(document.getElementById("filtro-nombre").value||"").toLowerCase();
   var filtM=document.getElementById("filtro-mes").value;
+  var fD=(document.getElementById("filtro-desde")||{}).value||"";
+  var fH=(document.getElementById("filtro-hasta")||{}).value||"";
   var lista=gastosDetalle.filter(function(g){
     if(filtCat&&g.cat!==filtCat)return false;
     if(filtM&&!(g.fecha||"").startsWith(filtM))return false;
+    // El rango se combina con la categoria y el texto. Las fechas se guardan
+    // como AAAA-MM-DD, asi que comparar los textos ordena igual que las fechas.
+    if(fD&&(g.fecha||"")<fD)return false;
+    if(fH&&(g.fecha||"")>fH)return false;
     if(filtN){var ok=[(g.desc||""),(g.cat||""),(CATS[g.cat]||""),(g.pago||""),(g.fecha||""),String(g.monto)].some(function(f){return f.toLowerCase().includes(filtN);});if(!ok)return false;}
     return true;
   }).sort(function(a,b){var fd=(b.fecha||"").localeCompare(a.fecha||"");return fd!==0?fd:(b.id||0)-(a.id||0);});
@@ -2541,7 +2568,11 @@ function guardarEdicionGasto(id){
 }
 function exportarGastos(){
   var filtCat=document.getElementById("filtro-cat").value;var filtN=(document.getElementById("filtro-nombre").value||"").toLowerCase();var filtM=document.getElementById("filtro-mes").value;
-  var lista=gastosDetalle.filter(function(g){if(filtCat&&g.cat!==filtCat)return false;if(filtN&&!(g.desc||"").toLowerCase().includes(filtN))return false;if(filtM&&!(g.fecha||"").startsWith(filtM))return false;return true;}).sort(function(a,b){return(b.fecha||"").localeCompare(a.fecha||"");});
+  // El reporte respeta tambien el rango de fechas: si no, mostraria un
+  // conjunto distinto al que se esta viendo en la lista.
+  var fD=(document.getElementById("filtro-desde")||{}).value||"";
+  var fH=(document.getElementById("filtro-hasta")||{}).value||"";
+  var lista=gastosDetalle.filter(function(g){if(filtCat&&g.cat!==filtCat)return false;if(filtN&&!(g.desc||"").toLowerCase().includes(filtN))return false;if(filtM&&!(g.fecha||"").startsWith(filtM))return false;if(fD&&(g.fecha||"")<fD)return false;if(fH&&(g.fecha||"")>fH)return false;return true;}).sort(function(a,b){return(b.fecha||"").localeCompare(a.fecha||"");});
   var total=lista.reduce(function(a,g){return a+g.monto;},0);
   var html="<h3>Reporte de gastos</h3><div style='max-height:360px;overflow-y:auto;margin-bottom:12px'><table style='width:100%;border-collapse:collapse;font-size:12px'><thead><tr>";
   ["Fecha","Monto","Cat.","Descripcion","Pago"].forEach(function(t){html+="<th style='padding:5px;text-align:left;color:#888;border-bottom:1px solid #ccc'>"+t+"</th>";});
