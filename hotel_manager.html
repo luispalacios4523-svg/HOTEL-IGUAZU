@@ -392,7 +392,7 @@ td{padding:4px 6px;vertical-align:middle;}
       <!-- Fila de busqueda por columna, al estilo del modo buscar de FileMaker:
            lo que se escriba en cada casilla se combina con las demas. -->
       <tr style="background:#fbfbfb;">
-        <th style="padding:3px 6px;border-bottom:1px solid #ddd;"><input id="bc-fecha" placeholder="&#128269; 2026-08  o  2026-08-01..2026-08-15" title="Escriba un mes (2026-08), un d&#237;a (2026-08-15) o un rango con dos puntos: 2026-08-01..2026-08-15" oninput="renderGastosTab()" style="width:100%;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;font-weight:normal;"/></th>
+        <th style="padding:3px 6px;border-bottom:1px solid #ddd;"><input id="bc-fecha" placeholder="&#128269; 2026-08  o  2026-08-01..2026-08-15" title="Escriba un mes (2026-08), un d&#237;a (2026-08-15) o un rango con dos puntos: 2026-08-01..2026-08-15" oninput="filtroFechaCampo()" style="width:100%;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;font-weight:normal;"/></th>
         <th style="padding:3px 6px;border-bottom:1px solid #ddd;"><input id="bc-monto" placeholder="&#128269; monto" oninput="renderGastosTab()" style="width:100%;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;font-weight:normal;text-align:right;"/></th>
         <th style="padding:3px 6px;border-bottom:1px solid #ddd;"><input id="bc-cat" placeholder="&#128269; cat." oninput="renderGastosTab()" style="width:100%;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;font-weight:normal;"/></th>
         <th style="padding:3px 6px;border-bottom:1px solid #ddd;"><input id="bc-desc" placeholder="&#128269; descripci&#243;n  (gp, ch)" title="Varios t&#233;rminos separados por coma: trae los que contengan cualquiera de ellos" oninput="renderGastosTab()" style="width:100%;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;font-weight:normal;"/></th>
@@ -2473,11 +2473,22 @@ function registrarGasto(){
 function filtroMesGastos(){
   var d=document.getElementById("filtro-desde"),h=document.getElementById("filtro-hasta");
   if(d)d.value="";if(h)h.value="";
+  var f=document.getElementById("bc-fecha");if(f)f.value="";
   renderGastosTab();
 }
 function filtroRangoGastos(){
   var m=document.getElementById("filtro-mes");
   if(m)m.value="";
+  var f=document.getElementById("bc-fecha");if(f)f.value="";
+  renderGastosTab();
+}
+// La casilla de fecha de la tabla es una tercera forma de acotar por fecha.
+// Al usarla se limpian el mes y el rango de arriba: si quedaran activos, un
+// mes puesto recortaria el periodo pedido aqui y pareceria que no funciona.
+function filtroFechaCampo(){
+  ["filtro-mes","filtro-desde","filtro-hasta"].forEach(function(id){
+    var e=document.getElementById(id);if(e)e.value="";
+  });
   renderGastosTab();
 }
 function limpiarBusquedaCampos(){
