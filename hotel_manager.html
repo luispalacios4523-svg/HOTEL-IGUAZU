@@ -388,6 +388,16 @@ td{padding:4px 6px;vertical-align:middle;}
         <th style="padding:8px;border-bottom:2px solid #ccc;">Descripci&#243;n</th>
         <th style="padding:8px;border-bottom:2px solid #ccc;">Forma pago</th>
         <th style="padding:8px;border-bottom:2px solid #ccc;"></th>
+      </tr>
+      <!-- Fila de busqueda por columna, al estilo del modo buscar de FileMaker:
+           lo que se escriba en cada casilla se combina con las demas. -->
+      <tr style="background:#fbfbfb;">
+        <th style="padding:3px 6px;border-bottom:1px solid #ddd;"><input id="bc-fecha" placeholder="&#128269; 2026-08" oninput="renderGastosTab()" style="width:100%;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;font-weight:normal;"/></th>
+        <th style="padding:3px 6px;border-bottom:1px solid #ddd;"><input id="bc-monto" placeholder="&#128269; monto" oninput="renderGastosTab()" style="width:100%;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;font-weight:normal;text-align:right;"/></th>
+        <th style="padding:3px 6px;border-bottom:1px solid #ddd;"><input id="bc-cat" placeholder="&#128269; cat." oninput="renderGastosTab()" style="width:100%;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;font-weight:normal;"/></th>
+        <th style="padding:3px 6px;border-bottom:1px solid #ddd;"><input id="bc-desc" placeholder="&#128269; descripci&#243;n" oninput="renderGastosTab()" style="width:100%;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;font-weight:normal;"/></th>
+        <th style="padding:3px 6px;border-bottom:1px solid #ddd;"><input id="bc-pago" placeholder="&#128269; pago" oninput="renderGastosTab()" style="width:100%;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;font-weight:normal;"/></th>
+        <th style="padding:3px 6px;border-bottom:1px solid #ddd;text-align:center;"><button onclick="limpiarBusquedaCampos()" title="Limpiar la b&#250;squeda por campos" style="border:none;background:none;cursor:pointer;color:#888;font-size:13px;">&#10005;</button></th>
       </tr></thead>
       <tbody id="tbody-gastos"></tbody>
     </table>
@@ -2470,8 +2480,15 @@ function filtroRangoGastos(){
   if(m)m.value="";
   renderGastosTab();
 }
+function limpiarBusquedaCampos(){
+  ["bc-fecha","bc-monto","bc-cat","bc-desc","bc-pago"].forEach(function(id){
+    var e=document.getElementById(id);if(e)e.value="";
+  });
+  renderGastosTab();
+}
 function verTodosGastos(){
-  ["filtro-cat","filtro-nombre","filtro-mes","filtro-desde","filtro-hasta"].forEach(function(id){
+  ["filtro-cat","filtro-nombre","filtro-mes","filtro-desde","filtro-hasta",
+   "bc-fecha","bc-monto","bc-cat","bc-desc","bc-pago"].forEach(function(id){
     var e=document.getElementById(id);if(e)e.value="";
   });
   renderGastosTab();
@@ -2482,6 +2499,8 @@ function renderGastosTab(){
   var filtM=document.getElementById("filtro-mes").value;
   var fD=(document.getElementById("filtro-desde")||{}).value||"";
   var fH=(document.getElementById("filtro-hasta")||{}).value||"";
+  var _bc=function(id){return ((document.getElementById(id)||{}).value||"").trim().toLowerCase();};
+  var bcF=_bc("bc-fecha"),bcM=_bc("bc-monto"),bcC=_bc("bc-cat"),bcD=_bc("bc-desc"),bcP=_bc("bc-pago");
   var lista=gastosDetalle.filter(function(g){
     if(filtCat&&g.cat!==filtCat)return false;
     if(filtM&&!(g.fecha||"").startsWith(filtM))return false;
@@ -2490,6 +2509,13 @@ function renderGastosTab(){
     if(fD&&(g.fecha||"")<fD)return false;
     if(fH&&(g.fecha||"")>fH)return false;
     if(filtN){var ok=[(g.desc||""),(g.cat||""),(CATS[g.cat]||""),(g.pago||""),(g.fecha||""),String(g.monto)].some(function(f){return f.toLowerCase().includes(filtN);});if(!ok)return false;}
+    // Busqueda por campo: cada casilla acota su propia columna y todas se
+    // combinan entre si, ademas de con los filtros de arriba.
+    if(bcF&&(g.fecha||"").toLowerCase().indexOf(bcF)<0)return false;
+    if(bcM&&String(g.monto||"").indexOf(bcM.replace(/\D/g,""))<0)return false;
+    if(bcC&&((g.cat||"")+" "+(CATS[g.cat]||"")).toLowerCase().indexOf(bcC)<0)return false;
+    if(bcD&&(g.desc||"").toLowerCase().indexOf(bcD)<0)return false;
+    if(bcP&&(g.pago||"").toLowerCase().indexOf(bcP)<0)return false;
     return true;
   }).sort(function(a,b){var fd=(b.fecha||"").localeCompare(a.fecha||"");return fd!==0?fd:(b.id||0)-(a.id||0);});
   var tb=document.getElementById("tbody-gastos");
