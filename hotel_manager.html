@@ -392,7 +392,7 @@ td{padding:4px 6px;vertical-align:middle;}
       <!-- Fila de busqueda por columna, al estilo del modo buscar de FileMaker:
            lo que se escriba en cada casilla se combina con las demas. -->
       <tr style="background:#fbfbfb;">
-        <th style="padding:3px 6px;border-bottom:1px solid #ddd;"><input id="bc-fecha" placeholder="&#128269; 2026-08" oninput="renderGastosTab()" style="width:100%;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;font-weight:normal;"/></th>
+        <th style="padding:3px 6px;border-bottom:1px solid #ddd;"><input id="bc-fecha" placeholder="&#128269; 2026-08  o  2026-08-01..2026-08-15" title="Escriba un mes (2026-08), un d&#237;a (2026-08-15) o un rango con dos puntos: 2026-08-01..2026-08-15" oninput="renderGastosTab()" style="width:100%;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;font-weight:normal;"/></th>
         <th style="padding:3px 6px;border-bottom:1px solid #ddd;"><input id="bc-monto" placeholder="&#128269; monto" oninput="renderGastosTab()" style="width:100%;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;font-weight:normal;text-align:right;"/></th>
         <th style="padding:3px 6px;border-bottom:1px solid #ddd;"><input id="bc-cat" placeholder="&#128269; cat." oninput="renderGastosTab()" style="width:100%;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;font-weight:normal;"/></th>
         <th style="padding:3px 6px;border-bottom:1px solid #ddd;"><input id="bc-desc" placeholder="&#128269; descripci&#243;n" oninput="renderGastosTab()" style="width:100%;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;font-weight:normal;"/></th>
@@ -2501,6 +2501,15 @@ function renderGastosTab(){
   var fH=(document.getElementById("filtro-hasta")||{}).value||"";
   var _bc=function(id){return ((document.getElementById(id)||{}).value||"").trim().toLowerCase();};
   var bcF=_bc("bc-fecha"),bcM=_bc("bc-monto"),bcC=_bc("bc-cat"),bcD=_bc("bc-desc"),bcP=_bc("bc-pago");
+  // La casilla de fecha acepta un rango, como el modo buscar de FileMaker:
+  //   2026-08-01..2026-08-15    2026-08-01 a 2026-08-15
+  // Si no es un rango se sigue comparando como texto, para que "2026-08"
+  // siga sirviendo para ver el mes completo.
+  var bcFd="",bcFh="";
+  if(bcF){
+    var _r=bcF.match(/^(\d{4}-\d{2}-\d{2})\s*(?:\.{2,3}|a|al|hasta)\s*(\d{4}-\d{2}-\d{2})$/);
+    if(_r){bcFd=_r[1];bcFh=_r[2];if(bcFd>bcFh){var _t=bcFd;bcFd=bcFh;bcFh=_t;}}
+  }
   var lista=gastosDetalle.filter(function(g){
     if(filtCat&&g.cat!==filtCat)return false;
     if(filtM&&!(g.fecha||"").startsWith(filtM))return false;
@@ -2511,7 +2520,8 @@ function renderGastosTab(){
     if(filtN){var ok=[(g.desc||""),(g.cat||""),(CATS[g.cat]||""),(g.pago||""),(g.fecha||""),String(g.monto)].some(function(f){return f.toLowerCase().includes(filtN);});if(!ok)return false;}
     // Busqueda por campo: cada casilla acota su propia columna y todas se
     // combinan entre si, ademas de con los filtros de arriba.
-    if(bcF&&(g.fecha||"").toLowerCase().indexOf(bcF)<0)return false;
+    if(bcFd){if((g.fecha||"")<bcFd||(g.fecha||"")>bcFh)return false;}
+    else if(bcF&&(g.fecha||"").toLowerCase().indexOf(bcF)<0)return false;
     if(bcM&&String(g.monto||"").indexOf(bcM.replace(/\D/g,""))<0)return false;
     if(bcC&&((g.cat||"")+" "+(CATS[g.cat]||"")).toLowerCase().indexOf(bcC)<0)return false;
     if(bcD&&(g.desc||"").toLowerCase().indexOf(bcD)<0)return false;
