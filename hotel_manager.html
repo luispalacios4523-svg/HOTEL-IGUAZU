@@ -76,9 +76,46 @@ td{padding:4px 6px;vertical-align:middle;}
 .login-btn{width:100%;padding:11px;background:#1a6bb5;color:#fff;border:none;border-radius:6px;font-size:15px;font-weight:bold;cursor:pointer;}
 .login-btn:hover{background:#1558a0;}
 .login-error{color:#c00;font-size:13px;margin-top:8px;}
+/* ── Comandos por voz: confirmacion a pantalla completa ──────────────────────
+   Botones grandes a proposito: se usa de pie, con el telefono en una mano. */
+.vz-ov{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,.94);z-index:99999;display:none;align-items:center;justify-content:center;padding:16px;}
+.vz-ov.on{display:flex;}
+.vz-card{background:#fff;border-radius:20px;padding:24px 20px;width:100%;max-width:430px;text-align:center;max-height:92vh;overflow-y:auto;}
+.vz-paso{font-size:12px;color:#94A3B8;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;}
+.vz-mon{font-size:48px;font-weight:800;color:#c00;line-height:1;margin:8px 0;}
+.vz-oido{font-size:12px;color:#94A3B8;font-style:italic;margin-bottom:14px;word-break:break-word;}
+.vz-alert{background:#FFFBEB;border:2px solid #F59E0B;color:#92400E;border-radius:12px;padding:11px;font-size:13px;font-weight:700;margin-bottom:12px;}
+.vz-x1000{background:#FFFBEB;border:2px solid #F59E0B;color:#92400E;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;padding:13px;width:100%;font-family:Arial,sans-serif;margin-bottom:12px;}
+.vz-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.vz-si{background:#10B981;color:#fff;border:none;border-radius:14px;font-size:20px;font-weight:800;cursor:pointer;padding:21px;font-family:Arial,sans-serif;grid-column:span 2;}
+.vz-rep{background:#EFF6FF;color:#3B82F6;border:2px solid #BFDBFE;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;padding:16px;font-family:Arial,sans-serif;}
+.vz-no{background:#FEF2F2;color:#EF4444;border:2px solid #FECACA;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;padding:16px;font-family:Arial,sans-serif;}
+.vz-esc{font-size:64px;margin:22px 0;animation:vzpulso 1.2s infinite;}
+@keyframes vzpulso{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.45;transform:scale(1.12);}}
+.vz-cand{display:block;width:100%;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:12px;padding:16px;margin-bottom:9px;font-family:Arial,sans-serif;cursor:pointer;text-align:left;}
+.vz-cand:hover{border-color:#3B82F6;background:#EFF6FF;}
+.vz-cand .n{font-size:18px;font-weight:800;color:#1E3A8A;}
+.vz-cand .d{font-size:12px;color:#64748B;margin-top:2px;}
+.vz-cand .num{display:inline-block;background:#3B82F6;color:#fff;border-radius:50%;width:26px;height:26px;line-height:26px;text-align:center;font-weight:800;font-size:14px;margin-right:9px;}
+.vz-fp{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+.vz-fp button{flex:1;min-width:78px;background:#F8FAFC;color:#64748B;border:2px solid #E2E8F0;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;padding:12px 4px;font-family:Arial,sans-serif;}
+.vz-fp button.on{background:#3B82F6;color:#fff;border-color:#3B82F6;}
+.vz-cmds{text-align:left;background:#F8FAFC;border-radius:12px;padding:12px 14px;margin-bottom:18px;}
+.vz-cmds .cmd{font-size:14px;color:#64748B;padding:5px 0;border-bottom:1px solid #E2E8F0;}
+.vz-cmds .cmd:last-child{border-bottom:none;}
+.vz-cmds .c{color:#3B82F6;font-weight:800;}
+.vz-campo{margin-bottom:12px;text-align:left;}
+.vz-campo label{display:block;font-size:11px;color:#64748B;font-weight:700;text-transform:uppercase;margin-bottom:4px;}
+.vz-mon-inp{width:100%;font-family:Arial,sans-serif;font-size:34px;font-weight:800;color:#c00;padding:10px 14px;border:2.5px solid #FECACA;border-radius:14px;text-align:center;outline:none;background:#FEF2F2;box-sizing:border-box;}
+.vz-txt-inp{width:100%;font-family:Arial,sans-serif;font-size:17px;font-weight:700;color:#1E293B;padding:13px 14px;border:2px solid #E2E8F0;border-radius:12px;outline:none;background:#fff;box-sizing:border-box;}
+.vz-txt-inp:focus{border-color:#3B82F6;}
+.vz-mic{background:#5c3ec9;color:#fff;border:none;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:bold;cursor:pointer;font-family:Arial,sans-serif;}
+.hf-btn{background:#f8f8f8;color:#666;border:2px solid #ddd;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:bold;cursor:pointer;font-family:Arial,sans-serif;}
+.hf-btn.on{background:#10B981;color:#fff;border-color:#10B981;animation:vzpulso 2s infinite;}
 </style>
 </head>
 <body>
+<div class="vz-ov" id="VZ-OV"><div class="vz-card" id="VZ-CARD"></div></div>
 <div class="login-overlay" id="login-overlay">
   <div class="login-box">
     <div class="login-title">🏨 Hotel Manager</div>
@@ -275,6 +312,8 @@ td{padding:4px 6px;vertical-align:middle;}
         <div style="display:flex;flex-direction:column;gap:2px;"><label style="font-size:11px;color:#888;">Valor total $</label><input type="number" id="c-valor" placeholder="0" style="width:110px;padding:7px 10px;border:1px solid #ccc;border-radius:6px;"/></div>
         <div style="display:flex;flex-direction:column;gap:2px;"><label style="font-size:11px;color:#888;">Forma de pago</label><select id="c-pago" style="padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px;width:130px;"><option value="">-- Pago --</option><option>Efectivo</option><option>Nequi</option><option>Bancolombia</option><option>Bold</option><option>Daviplata</option><option>Ayenda</option></select></div>
         <button class="tbtn tbtn-green" onclick="registrarCompra()">+ Registrar</button>
+        <button class="vz-mic" onclick="iniciarVoz('compra')" title="Dictar la compra">&#127908; Por voz</button>
+        <button id="HF-BTN-compra" class="hf-btn" onclick="toggleHF()">&#128066; Manos libres: APAGADO</button>
       </div>
     </div>
     <div id="tabla-compras"></div>
@@ -358,6 +397,8 @@ td{padding:4px 6px;vertical-align:middle;}
         <input type="text" id="g-desc-libre" placeholder="Detalle del gasto" style="width:220px;padding:7px 9px;border:1px solid #ccc;border-radius:6px;font-size:14px;"/>
       </div>
       <button id="btn-registrar-gasto" class="tbtn tbtn-warn" onclick="registrarGasto()" style="padding:8px 18px;font-size:14px;">+ Registrar</button>
+      <button class="vz-mic" onclick="iniciarVoz('gasto')" title="Dictar el gasto">&#127908; Por voz</button>
+      <button id="HF-BTN-gasto" class="hf-btn" onclick="toggleHF()">&#128066; Manos libres: APAGADO</button>
       <span id="gasto-msg" style="font-size:13px;margin-left:8px;"></span>
     </div>
   </div>
@@ -2955,6 +2996,434 @@ function autoArchivarVencidos(){
 // Auto-archivar cada 5 minutos. Ya no puede destruir registros: solo libera la
 // habitacion despues de confirmar que quedo respaldada en el historial.
 setInterval(function(){autoArchivarVencidos();}, 5*60*1000);
+
+// ══════════════════════════════════════════════════════════════════════════
+// COMANDOS POR VOZ  —  solo GASTOS y COMPRAS DE TIENDA
+// Portado de la app de Clientes. El registro manual sigue intacto: esto es
+// una via alterna, nunca la unica.
+// Regla que no se rompe: no se guarda nada sin confirmacion explicita.
+// ══════════════════════════════════════════════════════════════════════════
+function ge(id){return document.getElementById(id);}
+
+// "veinte mil" -> 20000. El micrófono devuelve texto, no cifras.
+function parsearNumeroEsp(txt){
+  var t=(txt||'').toLowerCase().trim();
+  var map={'cero':0,'un':1,'uno':1,'dos':2,'tres':3,'cuatro':4,'cinco':5,'seis':6,'siete':7,'ocho':8,'nueve':9,
+    'diez':10,'once':11,'doce':12,'trece':13,'catorce':14,'quince':15,'dieciséis':16,'dieciseis':16,
+    'diecisiete':17,'dieciocho':18,'diecinueve':19,'veinte':20,'veintiuno':21,'veintidos':22,'veintidós':22,
+    'veintitres':23,'veintitrés':23,'veinticuatro':24,'veinticinco':25,'veintiseis':26,'veintisiete':27,
+    'veintiocho':28,'veintinueve':29,'treinta':30,'cuarenta':40,'cincuenta':50,'sesenta':60,'setenta':70,
+    'ochenta':80,'noventa':90,'cien':100,'ciento':100,'doscientos':200,'trescientos':300,'cuatrocientos':400,
+    'quinientos':500,'seiscientos':600,'setecientos':700,'ochocientos':800,'novecientos':900};
+  var num=0,cur=0;
+  t.replace(/\s+/g,' ').split(' ').forEach(function(p){
+    p=p.replace(/[.,]/g,'');
+    if(map[p]!==undefined){
+      if(map[p]>=100){if(cur===0)cur=1;cur*=map[p];num+=cur;cur=0;}
+      else cur+=map[p];
+    } else if(p==='mil'){if(cur===0)cur=1;num+=cur*1000;cur=0;
+    } else if(p==='millón'||p==='millon'||p==='millones'){if(cur===0)cur=1;num+=cur*1000000;cur=0;
+    } else {var n=parseFloat(p);if(!isNaN(n))cur+=n;}
+  });
+  return num+cur;
+}
+
+// Normaliza: minusculas, sin acentos, sin signos
+function norm(s){
+  return (s||'').toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[^a-z0-9ñ ]/g,' ').replace(/\s+/g,' ').trim();
+}
+// Distancia de edicion (tolera errores del microfono)
+function edit(a,b){
+  var m=a.length,n=b.length;
+  if(!m)return n; if(!n)return m;
+  var prev=[],cur=[],i,j;
+  for(j=0;j<=n;j++)prev[j]=j;
+  for(i=1;i<=m;i++){
+    cur[0]=i;
+    for(j=1;j<=n;j++)cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));
+    for(j=0;j<=n;j++)prev[j]=cur[j];
+  }
+  return prev[n];
+}
+// Que tan parecidas son dos palabras: 1 = identicas, 0 = nada
+function simil(a,b){
+  if(a===b)return 1;
+  if(a.length>3&&b.length>3&&(a.indexOf(b)===0||b.indexOf(a)===0))return 0.92;
+  var d=edit(a,b),max=Math.max(a.length,b.length);
+  return max?1-d/max:0;
+}
+// Equivalente de rankClientes: en vez de clientes se buscan textos ya usados
+// antes —descripciones de gastos, productos, proveedores—. Sirve para que el
+// micrófono no invente escrituras nuevas de algo que ya existe.
+function rankTextos(txt,lista){
+  var pal=norm(txt).split(' ').filter(function(w){return w.length>2;});
+  if(!pal.length)return [];
+  var vistos={},res=[];
+  lista.forEach(function(item){
+    var k=norm(item);
+    if(!k||vistos[k])return;
+    var partes=k.split(' ').filter(function(w){return w.length>1;});
+    var score=0;
+    partes.forEach(function(parte){
+      var mejor=0;
+      pal.forEach(function(w){var s=simil(parte,w);if(s>mejor)mejor=s;});
+      if(mejor>=0.72)score+=mejor;
+    });
+    if(score>=0.72){vistos[k]=1;res.push({t:item,score:score});}
+  });
+  res.sort(function(a,b){return b.score-a.score;});
+  return res;
+}
+function descripcionesPrevias(){return gastosDetalle.map(function(g){return g.desc||'';});}
+function productosPrevios(){return comprasTienda.map(function(c){return c.producto||'';});}
+function proveedoresPrevios(){return comprasTienda.map(function(c){return c.proveedor||'';});}
+
+// Forma de pago dicha en voz alta
+function vzDetectarPago(txt){
+  var t=norm(txt);
+  if(t.indexOf('nequi')>=0)return'Nequi';
+  if(t.indexOf('bancolombia')>=0||t.indexOf('banco')>=0)return'Bancolombia';
+  if(t.indexOf('daviplata')>=0||t.indexOf('davi')>=0)return'Daviplata';
+  if(t.indexOf('bold')>=0)return'Bold';
+  if(t.indexOf('ayenda')>=0)return'Ayenda';
+  return'Efectivo';
+}
+// Categoria del gasto a partir de lo que se oyó. Si no se reconoce queda en
+// OTR y se corrige tocando un boton en la confirmacion.
+function vzDetectarCat(txt){
+  var t=norm(txt);
+  if(/\b(luz|agua|energia|gas|internet|telefono|servicio|servicios)\b/.test(t))return'SP';
+  if(/\b(turno|nomina|sueldo|salario|pago de turno)\b/.test(t))return'NOM';
+  if(/\b(aseo|clorox|jabon|detergente|papel|escoba|trapero|bolsa|bolsas|ambientador|higienico)\b/.test(t))return'ASEO';
+  if(/\b(mantenimiento|reparacion|arreglo|plomeria|electrico|pintura)\b/.test(t))return'MTO';
+  if(/\b(booking|comision)\b/.test(t))return'BOOK';
+  if(/\b(liquido|liquidos|vitrina)\b/.test(t))return'LIQ';
+  return'OTR';
+}
+// Quita del texto el comando, la forma de pago y los numeros, para quedarse
+// con la descripcion.
+function vzLimpiar(txt,comandos){
+  var t=(txt||'').toLowerCase();
+  (comandos||[]).forEach(function(p){t=t.replace(new RegExp('^\\s*'+p+'\\s+','i'),'');});
+  t=t.replace(/nequi|bancolombia|daviplata|efectivo|bold|ayenda|banco|davi/gi,'').replace(/[\d,.]+/g,'');
+  ['cero','uno','una','dos','tres','cuatro','cinco','seis','siete','ocho','nueve','diez','once','doce','trece','catorce','quince',
+   'dieciseis','diecisiete','dieciocho','diecinueve','veinte','treinta','cuarenta','cincuenta','sesenta','setenta','ochenta','noventa',
+   'cien','ciento','doscientos','trescientos','cuatrocientos','quinientos','seiscientos','setecientos','ochocientos','novecientos',
+   'mil','millon','millón','millones','pesos','peso','de','por'].forEach(function(p){
+    t=t.replace(new RegExp('\\b'+p+'\\b','gi'),'');
+  });
+  return t.replace(/\s+/g,' ').trim();
+}
+
+// ── Hablar en voz alta (para no tener que mirar la pantalla) ──
+var _hablando=false;
+function decir(txt){
+  try{
+    if(!window.speechSynthesis)return;
+    speechSynthesis.cancel();
+    var u=new SpeechSynthesisUtterance(txt);
+    u.lang='es-CO';u.rate=1.05;u.volume=1;
+    // Mientras la app habla, ignora lo que oye (para no escucharse a si misma)
+    u.onstart=function(){_hablando=true;};
+    u.onend=function(){setTimeout(function(){_hablando=false;},250);};
+    u.onerror=function(){_hablando=false;};
+    speechSynthesis.speak(u);
+  }catch(e){_hablando=false;}
+}
+
+var _vozDato=null,_vzCands=[],_vzTipo='gasto';
+function ovMostrar(html){ge('VZ-CARD').innerHTML=html;ge('VZ-OV').classList.add('on');}
+function ovCerrar(){
+  ge('VZ-OV').classList.remove('on');_vozDato=null;_vzCands=[];
+  try{speechSynthesis.cancel();}catch(e){}
+  _hablando=false;
+  if(HF)hfArrancar();
+}
+function _vzEsc(t){return String(t==null?'':t).replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+function ovError(msg,texto){
+  ovMostrar('<div class="vz-paso">No pude registrarlo</div>'+
+    '<div style="font-size:19px;font-weight:800;color:#c00;margin-bottom:10px;">'+_vzEsc(msg)+'</div>'+
+    (texto?'<div class="vz-oido">Escuché: "'+_vzEsc(texto)+'"</div>':'')+
+    '<div class="vz-btns">'+
+      '<button class="vz-rep" onclick="iniciarVoz(\''+_vzTipo+'\')">🎤 Repetir</button>'+
+      '<button class="vz-no" onclick="ovCerrar()">✕ Cerrar</button>'+
+    '</div>');
+  decir(msg);
+}
+
+// ══ MODO MANOS LIBRES ══
+// La app escucha todo el tiempo pero solo actua cuando oye una palabra clave.
+var HF=false,_recHF=null,_hfReinicio=null;
+var CLAVES=['gasto','gasté','gaste','gastos','compra','compré','compre','comprar','pagué','pague','pago de'];
+function tieneClave(t){
+  var n=norm(t);
+  for(var i=0;i<CLAVES.length;i++){
+    var c=norm(CLAVES[i]);
+    if(n===c||n.indexOf(c+' ')===0||n.indexOf(' '+c+' ')>=0)return true;
+  }
+  return false;
+}
+function hfPintar(){
+  ['HF-BTN-gasto','HF-BTN-compra'].forEach(function(id){
+    var b=ge(id);if(!b)return;
+    b.innerHTML=HF?'👂 Manos libres: ESCUCHANDO':'👂 Manos libres: APAGADO';
+    if(HF)b.classList.add('on');else b.classList.remove('on');
+  });
+}
+function toggleHF(){
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){alert('Su navegador no reconoce voz. Use Chrome.');return;}
+  HF=!HF;hfPintar();
+  if(HF){hfArrancar();decir('Manos libres activo');}
+  else hfParar();
+}
+function hfParar(){
+  if(_hfReinicio){clearTimeout(_hfReinicio);_hfReinicio=null;}
+  if(_recHF){try{_recHF.onend=null;_recHF.stop();}catch(e){}_recHF=null;}
+}
+function hfArrancar(){
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR||!HF)return;
+  hfParar();
+  var r=new SR();
+  r.lang='es-CO';r.continuous=true;r.interimResults=false;r.maxAlternatives=3;
+  r.onresult=function(e){
+    if(_hablando)return;
+    var i=e.resultIndex,alts=[];
+    for(var k=0;k<e.results[i].length;k++)alts.push(e.results[i][k].transcript);
+    hfOir(alts);
+  };
+  r.onerror=function(ev){
+    if(ev.error==='not-allowed'||ev.error==='service-not-allowed'){HF=false;hfPintar();}
+  };
+  r.onend=function(){if(HF)_hfReinicio=setTimeout(hfArrancar,350);};
+  _recHF=r;
+  try{r.start();}catch(e){}
+}
+// Que hacer con lo que se escucho en modo manos libres
+function hfOir(alts){
+  var t=alts[0],n=norm(t);
+  if(ge('VZ-OV').classList.contains('on')){
+    // Elegir entre varios parecidos diciendo el numero
+    if(_vzCands.length){
+      var num={'uno':1,'una':1,'1':1,'dos':2,'2':2,'tres':3,'3':3,'cuatro':4,'4':4,'cinco':5,'5':5};
+      var pal=n.split(' ');
+      for(var i=0;i<pal.length;i++){
+        if(num[pal[i]]&&_vzCands[num[pal[i]]-1]){vzElegirTexto(num[pal[i]]-1);return;}
+      }
+    }
+    if(/\b(si|sí|confirmo|confirmar|correcto|guardar|guarda|listo|dale)\b/.test(n)){vzGuardar();return;}
+    if(/\b(no|cancela|cancelar|borra|nada)\b/.test(n)){ovCerrar();return;}
+    if(/\b(repetir|repite|otra vez|de nuevo)\b/.test(n)){iniciarVoz(_vzTipo);return;}
+    return;
+  }
+  // Sin overlay abierto: solo reacciona si oye una palabra clave
+  for(var j=0;j<alts.length;j++){
+    if(tieneClave(alts[j])){
+      var esCompra=/\bcompr/.test(norm(alts[j]));
+      procesarVoz(alts,esCompra?'compra':'gasto');
+      return;
+    }
+  }
+}
+
+function iniciarVoz(tipo){
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){alert('Su navegador no reconoce voz. Use Chrome.');return;}
+  _vzTipo=tipo||'gasto';
+  if(HF)hfParar();
+  ovMostrar('<div class="vz-paso">Escuchando…</div>'+
+    '<div class="vz-esc">🎤</div>'+
+    '<div class="vz-cmds">'+
+      (_vzTipo==='compra'
+        ? '<div class="cmd"><span class="c">compra</span> diez gaseosas veinte mil efectivo</div>'+
+          '<div class="cmd"><span class="c">compra</span> cinco jabones treinta mil nequi</div>'
+        : '<div class="cmd"><span class="c">gasto</span> detergente veinte mil efectivo</div>'+
+          '<div class="cmd"><span class="c">gasto</span> luz doscientos mil bancolombia</div>'+
+          '<div class="cmd"><span class="c">gasto</span> turno mary setenta mil</div>')+
+    '</div>'+
+    '<button class="vz-no" style="width:100%" onclick="ovCerrar()">✕ Cancelar</button>');
+  var rec=new SR();
+  rec.lang='es-CO';rec.continuous=false;rec.interimResults=false;rec.maxAlternatives=3;
+  var proceso=false;
+  rec.onresult=function(e){
+    proceso=true;
+    var alts=[];
+    for(var i=0;i<e.results[0].length;i++)alts.push(e.results[0][i].transcript);
+    procesarVoz(alts,_vzTipo);
+  };
+  rec.onerror=function(ev){
+    proceso=true;
+    ovError(ev.error==='no-speech'?'No escuché nada.':(ev.error==='not-allowed'?'Permiso de micrófono denegado.':'Error de micrófono.'),'');
+  };
+  rec.onend=function(){if(!proceso)ovError('No escuché nada.','');};
+  try{rec.start();}catch(e){ovCerrar();alert('No se pudo iniciar el micrófono.');}
+}
+
+function procesarVoz(alts,tipo){
+  _vzTipo=tipo||'gasto';
+  var texto=alts[0];
+  // Se prueban las 3 alternativas del reconocedor, no solo la primera: a
+  // menudo la segunda trae bien el monto que la primera entendio mal.
+  var monto=0;
+  for(var i=0;i<alts.length&&!monto;i++){
+    monto=parsearNumeroEsp(alts[i]);
+    if(!monto){var m=alts[i].match(/[\d][\d,.]*/);if(m)monto=parseFloat(m[0].replace(/\./g,'').replace(/,/g,''));}
+  }
+  if(!monto)return ovError('No entendí el monto.',texto);
+  var pago=vzDetectarPago(texto);
+
+  if(_vzTipo==='compra'){
+    var prod=vzLimpiar(texto,['compra','compré','compre','comprar']);
+    // Cantidad: el primer numero pequeño dicho antes del monto
+    var cant=1;
+    var mc=norm(texto).match(/\b(\d{1,3})\b/);
+    if(mc&&parseInt(mc[1])<1000)cant=parseInt(mc[1]);
+    _vozDato={tipo:'compra',producto:prod,proveedor:'',cantidad:cant,valor:monto,pago:pago,texto:texto};
+    // Si el producto se parece a alguno ya comprado, se ofrecen para elegir y
+    // no quedan dos escrituras distintas de lo mismo.
+    var cp=[];
+    alts.forEach(function(a){
+      rankTextos(vzLimpiar(a,['compra','compré','compre','comprar']),productosPrevios()).forEach(function(c){cp.push(c);});
+    });
+    if(prod&&cp.length&&norm(cp[0].t)!==norm(prod))return ovListaTextos(cp.slice(0,5),'producto',prod);
+    return ovConfirmar();
+  }
+
+  var desc=vzLimpiar(texto,['gasto','gasté','gaste','gastos','pagué','pague','pago de']);
+  if(!desc)return ovError('No entendí la descripción.',texto);
+  _vozDato={tipo:'gasto',desc:desc,cat:vzDetectarCat(texto),monto:monto,pago:pago,texto:texto};
+  var cd=[];
+  alts.forEach(function(a){
+    rankTextos(vzLimpiar(a,['gasto','gasté','gaste','gastos','pagué','pague','pago de']),descripcionesPrevias()).forEach(function(c){cd.push(c);});
+  });
+  if(cd.length&&norm(cd[0].t)!==norm(desc))return ovListaTextos(cd.slice(0,5),'desc',desc);
+  return ovConfirmar();
+}
+
+// Varios parecidos: botones grandes, se elige tocando o diciendo el numero
+function ovListaTextos(cands,campo,escrito){
+  _vzCands=cands.map(function(c){return {t:c.t,campo:campo};});
+  var h='<div class="vz-paso">¿Cuál de estos?</div>'+
+    '<div style="font-size:15px;color:#64748B;margin-bottom:14px;">Escuché <b>"'+_vzEsc(escrito)+'"</b>. Ya existen estos parecidos:</div>';
+  cands.forEach(function(c,i){
+    h+='<button class="vz-cand" onclick="vzElegirTexto('+i+')">'+
+       '<span class="num">'+(i+1)+'</span><span class="n">'+_vzEsc(c.t)+'</span></button>';
+  });
+  h+='<button class="vz-cand" onclick="vzElegirTexto(-1)" style="border-color:#c9a227;background:#fff8e1;">'+
+     '<span class="n">Usar "'+_vzEsc(escrito)+'" tal como lo dije</span>'+
+     '<div class="d">Se registrará como algo nuevo</div></button>';
+  if(HF)h+='<div style="font-size:12px;color:#10B981;font-weight:700;margin:10px 0">👂 Diga el <b>número</b> de la opción</div>';
+  h+='<div class="vz-btns" style="margin-top:10px">'+
+      '<button class="vz-rep" onclick="iniciarVoz(\''+_vzTipo+'\')">🎤 Repetir</button>'+
+      '<button class="vz-no" onclick="ovCerrar()">✕ Cancelar</button>'+
+     '</div>';
+  ovMostrar(h);
+  decir('Encontré varios parecidos. Diga el número.');
+}
+function vzElegirTexto(i){
+  if(!_vozDato)return ovCerrar();
+  if(i>=0&&_vzCands[i]){
+    if(_vzCands[i].campo==='desc')_vozDato.desc=_vzCands[i].t;
+    else _vozDato.producto=_vzCands[i].t;
+  }
+  _vzCands=[];
+  ovConfirmar();
+}
+
+function ovConfirmar(){
+  var d=_vozDato;if(!d)return;
+  var h='',hablar='';
+  if(d.tipo==='compra'){
+    h='<div class="vz-paso">Confirmar compra de tienda</div>'+
+      '<div class="vz-campo"><label>Producto</label><input type="text" id="VZ-PROD" class="vz-txt-inp" value="'+_vzEsc(d.producto)+'"></div>'+
+      '<div class="vz-campo"><label>Proveedor</label><input type="text" id="VZ-PROV" class="vz-txt-inp" value="'+_vzEsc(d.proveedor)+'" placeholder="Escriba el proveedor"></div>'+
+      '<div class="vz-campo"><label>Cantidad</label><input type="number" id="VZ-CANT" class="vz-txt-inp" value="'+(d.cantidad||1)+'"></div>'+
+      '<div class="vz-campo"><label>Valor total</label><input type="number" id="VZ-MON" class="vz-mon-inp" value="'+d.valor+'"></div>'+
+      '<div class="vz-oido">Escuché: "'+_vzEsc(d.texto)+'"</div>';
+    hablar='Compra de '+d.producto+', '+d.valor.toLocaleString('es-CO')+' pesos. ¿Confirmo?';
+  } else {
+    h='<div class="vz-paso">Confirmar gasto</div>'+
+      '<div class="vz-campo"><label>Descripción</label><input type="text" id="VZ-DESC" class="vz-txt-inp" value="'+_vzEsc(d.desc)+'"></div>'+
+      '<div class="vz-campo"><label>Monto</label><input type="number" id="VZ-MON" class="vz-mon-inp" value="'+d.monto+'"></div>'+
+      '<div class="vz-campo"><label>Categoría</label><div class="vz-fp" id="VZ-CATS">'+
+        Object.keys(CATS).map(function(c){
+          return '<button class="'+(c===d.cat?'on':'')+'" onclick="vzCat(\''+c+'\')">'+c+'</button>';
+        }).join('')+'</div></div>'+
+      '<div class="vz-oido">Escuché: "'+_vzEsc(d.texto)+'"</div>';
+    hablar='Gasto '+d.desc+', '+d.monto.toLocaleString('es-CO')+' pesos. ¿Confirmo?';
+  }
+  var mon=(d.tipo==='compra'?d.valor:d.monto);
+  // Si el monto quedo chico, ofrecer multiplicar por mil (dijo "veinte" por "veinte mil")
+  if(mon>0&&mon<1000)h+='<button class="vz-x1000" onclick="vzPorMil()">¿Quiso decir '+fmt(mon*1000)+'? Tocar para cambiar</button>';
+  if(HF)h+='<div style="font-size:12px;color:#10B981;font-weight:700;margin-bottom:10px">👂 Diga <b>"SÍ"</b> para guardar o <b>"NO"</b> para cancelar</div>';
+  h+='<div class="vz-campo"><label>Forma de pago</label><div class="vz-fp">'+
+      PAGOS.filter(function(p){return p;}).map(function(p){
+        return '<button class="'+(p===d.pago?'on':'')+'" onclick="vzPago(\''+p+'\')">'+p+'</button>';
+      }).join('')+'</div></div>'+
+     '<div class="vz-btns">'+
+       '<button class="vz-si" onclick="vzGuardar()">✓ SÍ, GUARDAR</button>'+
+       '<button class="vz-rep" onclick="iniciarVoz(\''+_vzTipo+'\')">🎤 Repetir</button>'+
+       '<button class="vz-no" onclick="ovCerrar()">✕ Cancelar</button>'+
+     '</div>';
+  ovMostrar(h);
+  decir(hablar);
+}
+// Toma lo que el usuario haya escrito a mano en la pantalla de confirmacion
+function vzLeerEditado(){
+  if(!_vozDato)return;
+  var m=ge('VZ-MON');
+  if(m&&m.value!==''){var v=parseFloat(m.value)||0;if(_vozDato.tipo==='compra')_vozDato.valor=v;else _vozDato.monto=v;}
+  var de=ge('VZ-DESC');if(de)_vozDato.desc=de.value.trim();
+  var pr=ge('VZ-PROD');if(pr)_vozDato.producto=pr.value.trim();
+  var pv=ge('VZ-PROV');if(pv)_vozDato.proveedor=pv.value.trim();
+  var ct=ge('VZ-CANT');if(ct)_vozDato.cantidad=parseInt(ct.value)||1;
+}
+function vzPago(p){if(!_vozDato)return;vzLeerEditado();_vozDato.pago=p;ovConfirmar();}
+function vzCat(c){if(!_vozDato)return;vzLeerEditado();_vozDato.cat=c;ovConfirmar();}
+function vzPorMil(){
+  if(!_vozDato)return;
+  vzLeerEditado();
+  if(_vozDato.tipo==='compra')_vozDato.valor*=1000;else _vozDato.monto*=1000;
+  ovConfirmar();
+}
+
+function vzGuardar(){
+  vzLeerEditado();
+  var d=_vozDato;
+  if(!d)return ovCerrar();
+  var hoyF=new Date().toLocaleDateString('en-CA');
+  if(d.tipo==='compra'){
+    if(!d.producto)return alert('Escriba el producto.');
+    if(!d.proveedor)return alert('Escriba el proveedor.');
+    if(!d.valor||d.valor<=0)return alert('El valor debe ser mayor a 0.');
+    if(!d.pago)return alert('Seleccione la forma de pago.');
+    comprasTienda.push({id:Date.now(),fecha:hoyF,proveedor:d.proveedor,producto:d.producto,
+      cantidad:parseInt(d.cantidad)||1,valor:d.valor,pago:d.pago});
+    guardar();
+    if(typeof renderCompras==='function')renderCompras();
+    decir('Compra guardada.');
+  } else {
+    if(!d.desc)return alert('Escriba la descripción.');
+    if(!d.monto||d.monto<=0)return alert('El monto debe ser mayor a 0.');
+    if(!d.cat)return alert('Seleccione la categoría.');
+    if(!d.pago)return alert('Seleccione la forma de pago.');
+    // Misma regla que al registrar a mano: en NOM la descripcion empieza con 'Turno'
+    if(d.cat==='NOM'&&d.desc.toLowerCase().indexOf('turno')!==0)d.desc='Turno '+d.desc;
+    var a=new Date();
+    gastosDetalle.push({id:Date.now(),fecha:hoyF,monto:d.monto,cat:d.cat,desc:d.desc,pago:d.pago,
+      creadoPor:(sesion.nombre||sesion.usuario||'')+' [voz]',
+      creadoEn:a.toLocaleDateString('en-CA')+' '+a.toTimeString().slice(0,5)});
+    guardar();renderGastosTab();
+    decir('Gasto guardado.');
+  }
+  calcTotales();
+  ge('VZ-OV').classList.remove('on');
+  _vozDato=null;_vzCands=[];
+  if(HF)hfArrancar();
+}
 
 // ── CIERRE POR INACTIVIDAD ───────────────────────────────────────────────────
 // La app baja los datos una sola vez al entrar. Si la sesion queda abierta
