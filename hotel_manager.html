@@ -3094,6 +3094,17 @@ function vzDetectarPago(txt){
 // OTR y se corrige tocando un boton en la confirmacion.
 function vzDetectarCat(txt){
   var t=norm(txt);
+  // Primero se busca el nombre de la categoria dicho tal cual —"nom gp",
+  // "aseo", "servicios publicos"—. Asi funcionan tambien las categorias que
+  // el usuario cree despues, sin tener que tocar este codigo.
+  // Se recorren de nombre mas largo a mas corto para que "nom gp" gane
+  // sobre "nom", que esta contenido en el.
+  var claves=Object.keys(CATS).sort(function(a,b){return b.length-a.length;});
+  for(var i=0;i<claves.length;i++){
+    var cod=norm(claves[i]),nombre=norm(CATS[claves[i]]||'');
+    if(cod&&cod.length>=2&&new RegExp('\\b'+cod+'\\b').test(t))return claves[i];
+    if(nombre&&nombre.length>=4&&t.indexOf(nombre)>=0)return claves[i];
+  }
   if(/\b(luz|agua|energia|gas|internet|telefono|servicio|servicios)\b/.test(t))return'SP';
   if(/\b(turno|nomina|sueldo|salario|pago de turno)\b/.test(t))return'NOM';
   if(/\b(aseo|clorox|jabon|detergente|papel|escoba|trapero|bolsa|bolsas|ambientador|higienico)\b/.test(t))return'ASEO';
@@ -3107,6 +3118,15 @@ function vzDetectarCat(txt){
 function vzLimpiar(txt,comandos){
   var t=(txt||'').toLowerCase();
   (comandos||[]).forEach(function(p){t=t.replace(new RegExp('^\\s*'+p+'\\s+','i'),'');});
+  // Si se nombro la categoria, se quita: ya se uso para clasificar y en la
+  // descripcion sobraria. De mas larga a mas corta, para no partir "nom gp".
+  try{
+    Object.keys(CATS).sort(function(a,b){return b.length-a.length;}).forEach(function(c){
+      if(c.length>=2)t=t.replace(new RegExp('\\b'+c.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b','gi'),' ');
+      var nom=(CATS[c]||'').toLowerCase();
+      if(nom.length>=4)t=t.split(nom).join(' ');
+    });
+  }catch(e){}
   t=t.replace(/nequi|bancolombia|daviplata|efectivo|bold|ayenda|banco|davi/gi,'').replace(/[\d,.]+/g,'');
   ['cero','uno','una','dos','tres','cuatro','cinco','seis','siete','ocho','nueve','diez','once','doce','trece','catorce','quince',
    'dieciseis','diecisiete','dieciocho','diecinueve','veinte','treinta','cuarenta','cincuenta','sesenta','setenta','ochenta','noventa',
