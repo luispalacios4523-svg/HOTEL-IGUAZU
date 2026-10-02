@@ -4286,6 +4286,13 @@ function calcUtilidadesNetas(){
   // ── UTILIDAD NETA ──
   var utilidadNeta=totalVentas-totalGastosUtil;
 
+  // ── QUEDA EN CAJA ──
+  // La utilidad neta no descuenta los gastos OTR: son salidas de dinero que
+  // quedan fuera del calculo operativo. Para saber cuanto queda realmente hay
+  // que restarlos.
+  var totalOtr=gastosMes.reduce(function(a,g){return g.cat==='OTR'?a+g.monto:a;},0);
+  var quedaEnCaja=utilidadNeta-totalOtr;
+
   // ── NOM POR PERSONA (incluye NOM y todas las categorías NOM*) ──
   var nomGastos=gastosMes.filter(function(g){return g.cat==="NOM"||g.cat.toUpperCase().startsWith("NOM");});
   var nomPorPersona={};
@@ -4308,6 +4315,8 @@ function calcUtilidadesNetas(){
     {label:"TOTAL VENTAS",val:totalVentas,bg:"#d4edda",col:"#2d6a3f",big:true},
     {label:"Gastos (SP+MTO+NOM+ASEO+BOOK)",val:totalGastosUtil,bg:"#fde",col:"#c00",big:true},
     {label:"UTILIDAD NETA",val:utilidadNeta,bg:utilidadNeta>=0?"#d4edda":"#fde",col:utilidadNeta>=0?"#2d6a3f":"#c00",big:true},
+    {label:"Gastos OTR",val:totalOtr,bg:"#fde",col:"#c00"},
+    {label:"QUEDA EN CAJA (neta − OTR)",val:quedaEnCaja,bg:quedaEnCaja>=0?"#e3f0ff":"#fde",col:quedaEnCaja>=0?"#1a4a80":"#c00",big:true},
   ];
   tarjetas.forEach(function(t){
     html+="<div style='background:"+t.bg+";border-radius:8px;padding:12px 16px;'>";
@@ -4355,6 +4364,32 @@ function calcUtilidadesNetas(){
     }
     html+="</div>";
   });
+
+  // ── OTR, aparte ──
+  // No entra en la utilidad neta, pero si sale de la caja. Se lista al final
+  // para poder ver de que se trata lo que se descuenta en "Queda en caja".
+  var movsOtr=gastosMes.filter(function(g){return g.cat==='OTR';});
+  if(movsOtr.length){
+    html+="<div style='margin-bottom:16px;border:2px dashed #bbb;border-radius:8px;overflow:hidden;'>";
+    html+="<div style='background:#f0f0f0;padding:8px 14px;display:flex;justify-content:space-between;align-items:center;'>";
+    html+="<span style='font-weight:bold;color:#555;font-size:13px;'>OTR — "+(CATS['OTR']||'Otros')+"  <span style='font-weight:normal;color:#888;'>(fuera de la utilidad neta, pero sale de la caja)</span></span>";
+    html+="<span style='font-weight:bold;color:#555;font-size:15px;'>"+fmt(totalOtr)+"</span>";
+    html+="</div>";
+    html+="<table style='width:100%;border-collapse:collapse;font-size:12px;'>";
+    html+="<thead><tr style='background:#f9f9f9;'><th style='padding:6px 10px;text-align:left;color:#888;font-weight:normal;'>Fecha</th><th style='padding:6px 10px;text-align:left;color:#888;font-weight:normal;'>Descripción</th><th style='padding:6px 10px;text-align:left;color:#888;font-weight:normal;'>Forma pago</th><th style='padding:6px 10px;text-align:right;color:#888;font-weight:normal;'>Monto</th></tr></thead><tbody>";
+    movsOtr.sort(function(a,b){return (a.fecha||"").localeCompare(b.fecha||"");}).forEach(function(g){
+      html+="<tr style='border-top:1px solid #f0f0f0;'>";
+      html+="<td style='padding:6px 10px;color:#888;'>"+g.fecha+"</td>";
+      html+="<td style='padding:6px 10px;'>"+esc(g.desc||"")+"</td>";
+      html+="<td style='padding:6px 10px;color:#888;'>"+esc(g.pago||"")+"</td>";
+      html+="<td style='padding:6px 10px;text-align:right;font-weight:bold;color:#c00;'>"+fmt(g.monto)+"</td>";
+      html+="</tr>";
+    });
+    html+="<tr style='background:#f0f0f0;font-weight:bold;border-top:2px solid #ddd;'>";
+    html+="<td colspan='3' style='padding:7px 10px;color:#555;'>Subtotal OTR</td>";
+    html+="<td style='padding:7px 10px;text-align:right;color:#555;font-size:14px;'>"+fmt(totalOtr)+"</td>";
+    html+="</tr></tbody></table></div>";
+  }
 
   // Total general gastos
   html+="<div style='background:#fde;border-radius:8px;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;margin-top:4px;'>";
