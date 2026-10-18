@@ -1439,7 +1439,12 @@ function renderTable(){
       // Botón 👁 pasajero
       html+="<td><button onclick='toggleD("+h+")' title='Ver pasajero' style='border:none;background:none;cursor:pointer;font-size:16px;padding:2px 4px;'>&#128065;</button></td>";
       // Botón archivar (solo si hay nombre o valor y no está expirada en vista hoy)
-      html+="<td>"+(!expirada&&(ok||nm(r.valor)>0)?"<button onclick='archivarHab("+h+")' title='Archivar' style='border:none;background:none;cursor:pointer;font-size:14px;padding:2px 4px;color:#1a6bb5;'>&#128228;</button>":"")+"</td>";
+      // Si la estadía ya terminó, la fila se ve libre pero el huésped sigue
+      // guardado hasta las 12 del día: ahí va el botón para cerrarla a mano y
+      // poder recibir un pasajero temprano sin borrar al anterior.
+      html+="<td>"+(!expirada&&(ok||nm(r.valor)>0)
+        ?"<button onclick='archivarHab("+h+")' title='Archivar' style='border:none;background:none;cursor:pointer;font-size:14px;padding:2px 4px;color:#1a6bb5;'>&#128228;</button>"
+        :(expirada?"<button onclick='liberarExpirada("+h+")' title='Cerrar la estadía anterior y liberar la habitación' style='border:1px solid #c9a227;background:#fff3cd;cursor:pointer;font-size:11px;padding:2px 6px;border-radius:4px;color:#7a5c00;font-weight:bold;'>&#128275; Liberar</button>":""))+"</td>";
       // Botón ✕ limpiar
       html+="<td>"+(sesion.rol==="admin"?"<button onclick='limpiar("+h+")' style='border:none;background:none;cursor:pointer;color:#c00;font-size:14px'>&#10005;</button>":"")+"</td>";
       html+="</tr>";
@@ -1658,6 +1663,19 @@ function openModalPasajero(h){
   html+="<h3 style='margin:0;font-size:15px;'>&#128065; Hab "+h+" &mdash; Pasajeros</h3>";
   html+="<button class='tbtn tbtn-blue' onclick='agregarPasajeroModal("+h+")' style='font-size:12px;padding:4px 10px;'>+ Pasajero</button>";
   html+="</div>";
+  // La fila ya presenta la habitacion como libre, pero esta ventana muestra al
+  // huesped anterior, que todavia no ha pasado al historial. Sin este aviso se
+  // escribe encima y ese huesped desaparece: paso con la 304 un 18 de octubre
+  // a las 9 de la manana.
+  if(_estadiaTerminada(h)&&!estaVacia){
+    var _salAnt=calcSalida(r.fechaEntrada,parseInt(r.nochesTotal)||1);
+    html+="<div style='background:#fff3cd;border:2px solid #c9a227;border-radius:6px;padding:10px 12px;margin-bottom:12px;color:#7a5c00;font-size:13px;'>"
+      +"<b>&#9757; Esta habitación todavía tiene al huésped anterior</b><br>"
+      +esc((nombreActual||"Sin nombre").replace(/\s+/g," ").trim())+" &mdash; entrada "+esc(r.fechaEntrada)+", salida "+esc(_salAnt)+"."
+      +"<br>Si escribe encima, ese huésped <b>se pierde</b>. Ciérrelo primero:"
+      +"<div style='margin-top:8px;'><button onclick='liberarExpirada("+h+")' style='background:#7a5c00;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:bold;cursor:pointer;'>&#128275; Cerrar estadía y liberar la habitación</button></div>"
+      +"</div>";
+  }
   // Búsqueda de clientes
   html+="<div style='background:#f0f7ff;border:1px solid #3a7fc1;border-radius:6px;padding:10px 12px;margin-bottom:12px;'>";
   html+="<div style='display:flex;gap:8px;align-items:center;flex-wrap:wrap;'>";
@@ -2103,6 +2121,39 @@ function archivarHab(h){
   var msg=document.getElementById("saved-msg");
   msg.textContent="Archivado: "+nombre;msg.style.color="#1a6bb5";
   setTimeout(function(){msg.textContent="";msg.style.color="#2a6a3a";},3000);
+}
+
+// Una habitacion cuya estadia ya termino se ve vacia en la fila, pero el
+// huesped sigue guardado por debajo hasta las 12 del dia, que es cuando el
+// archivado automatico lo manda al historial. Antes de esa hora no habia
+// manera de liberarla: si llegaba un pasajero a las 9 de la manana y se
+// escribia encima, el huesped anterior se perdia sin dejar rastro.
+function liberarExpirada(h){
+  var r=reg[h];
+  if(!r||!r.fechaEntrada)return;
+  var p0=r.pasajeros&&r.pasajeros[0]?r.pasajeros[0]:{};
+  var hues=([p0.apellidos,p0.nombre].filter(function(x){return x&&x.trim();}).join(" ")||r.nombre||"").replace(/\s+/g," ").trim();
+  var noches=parseInt(r.nochesTotal)||1;
+  var sal=calcSalida(r.fechaEntrada,noches);
+  // Se pregunta el valor porque es el momento en que se cierra la estadia. Si
+  // se deja vacio, la noche queda guardada en cero y el dinero no aparece por
+  // ningun lado: ya paso con la noche del 16 al 17 en la 304.
+  var v=prompt("Cerrar la estadía y liberar la habitación "+h+":\n\n"
+    +(hues||"Sin nombre")+"\nEntrada "+r.fechaEntrada+"  —  salida "+sal+"\n\n"
+    +"Valor cobrado por esta estadía:", String(nm(r.valor)||""));
+  if(v===null)return; // canceló: no se toca nada
+  v=nm(v);
+  if(v>0)r.valor=v;
+  if(!hues&&!(v>0)){
+    if(!confirm("No hay nombre ni valor.\n\n¿Liberar la habitación "+h+" de todos modos?\nNo quedará nada en el historial."))return;
+  }
+  _pushHistorial(h,r,hues,sal,noches);
+  reg[h]=initHab(h);
+  abierta=null;closeOverlay();
+  guardar();renderTable();
+  var msg=document.getElementById("saved-msg");
+  if(msg){msg.textContent="Habitación "+h+" liberada — "+(hues||"sin nombre")+" quedó en el historial";msg.style.color="#1a6bb5";
+    setTimeout(function(){msg.textContent="";msg.style.color="#2a6a3a";},4000);}
 }
 
 function limpiar(h){if(!confirm("Limpiar habitacion "+h+"?"))return;reg[h]=initHab(h);abierta=null;renderTable();guardar();}
