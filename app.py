@@ -35,7 +35,9 @@ if DATABASE_URL:
     def db_load_all():
         conn = get_db()
         try:
-            rows = conn.run('SELECT key, value FROM store')
+            # Las filas de la bitacora quedan fuera: son de uso interno y
+            # engordarian cada carga de la aplicacion.
+            rows = conn.run("SELECT key, value FROM store WHERE key NOT LIKE 'chg%'")
         finally:
             try:
                 conn.close()
@@ -79,12 +81,13 @@ if DATABASE_URL:
             try:
                 rows = conn.run(
                     "SELECT key, CASE WHEN value LIKE '[%' "
-                    "THEN json_array_length(value::json) ELSE -1 END FROM store"
+                    "THEN json_array_length(value::json) ELSE -1 END FROM store "
+                    "WHERE key NOT LIKE 'chg%'"
                 )
             except Exception:
                 # Si algun valor no es JSON valido, se informa -1 en todos y el
                 # cliente simplemente no verifica, en vez de fallar la peticion.
-                rows = [(k, -1) for (k,) in conn.run('SELECT key FROM store')]
+                rows = [(k, -1) for (k,) in conn.run("SELECT key FROM store WHERE key NOT LIKE 'chg%'")]
         finally:
             try:
                 conn.close()
@@ -127,11 +130,73 @@ if DATABASE_URL:
             return base
         return op
 
+    # Numero de version de los datos. Sube en cada fusion y nada mas. Permite
+    # que cada dispositivo pregunte "cambio algo?" gastando unos bytes, en vez
+    # de bajar los 3,7 MB completos: ese fue el consumo que agoto la cuota de
+    # Supabase en julio. La limpieza del texto antes de convertir a numero es a
+    # proposito: si esa clave quedara con basura, un fallo aqui tumbaria el
+    # guardado entero, que es lo ultimo que puede fallar.
+    _SQL_REV = ("INSERT INTO store (key, value) VALUES ('hotel_rev', '1') "
+                "ON CONFLICT (key) DO UPDATE SET value = "
+                "((COALESCE(NULLIF(regexp_replace(store.value, '[^0-9]', '', 'g'), ''), '0'))::bigint + 1)::text")
+
+    def db_rev():
+        conn = get_db()
+        try:
+            rows = conn.run("SELECT value FROM store WHERE key = 'hotel_rev'")
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+        try:
+            return int(rows[0][0]) if rows else 0
+        except Exception:
+            return 0
+
+    # Bitacora de cambios. Cada fusion deja aqui una fila pequena con lo que
+    # se escribio, numerada por version. Asi un equipo que quedo atrasado pide
+    # solo esas filas —unos kilobytes— en vez de bajar los 3,7 MB completos.
+    # Se guardan las ultimas 200 y las viejas se borran: si un equipo estuvo
+    # apagado mas tiempo que eso, baja todo una vez y se pone al dia.
+    def _chg_key(n):
+        return 'chg_%09d' % n
+
+    def db_cambios(desde):
+        # Devuelve las anotaciones posteriores a 'desde', y cual es la mas
+        # antigua que se conserva: si el equipo viene de mas atras que esa,
+        # le falta historial y tendra que bajar los datos completos una vez.
+        conn = get_db()
+        try:
+            rows = conn.run(
+                "SELECT value FROM store WHERE key LIKE 'chg%' AND key > :k ORDER BY key",
+                k=_chg_key(desde))
+            pri = conn.run("SELECT MIN(key) FROM store WHERE key LIKE 'chg%'")
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+        primera = pri[0][0] if pri and pri[0][0] else None
+        return [r[0] for r in rows], primera
+
     def db_merge(ops):
         # Igual que db_save: todo o nada dentro de una transaccion.
         conn = get_db()
         try:
             conn.run('BEGIN')
+            conn.run(_SQL_REV)
+            rows_rev = conn.run("SELECT value FROM store WHERE key = 'hotel_rev'")
+            try:
+                rev = int(rows_rev[0][0])
+            except Exception:
+                rev = 0
+            conn.run(
+                'INSERT INTO store (key, value) VALUES (:key, :value) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value',
+                key=_chg_key(rev), value=json.dumps({'rev': rev, 'ops': ops}, ensure_ascii=False)
+            )
+            if rev % 50 == 0 and rev > 200:
+                conn.run("DELETE FROM store WHERE key LIKE 'chg%' AND key < :lim", lim=_chg_key(rev - 200))
             for key, op in ops.items():
                 rows = conn.run('SELECT value FROM store WHERE key = :key', key=key)
                 actual = None
@@ -192,7 +257,7 @@ else:
 
     def db_load_all():
         conn = get_db()
-        rows = conn.execute('SELECT key, value FROM store').fetchall()
+        rows = conn.execute("SELECT key, value FROM store WHERE key NOT LIKE 'chg%'").fetchall()
         conn.close()
         result = {}
         for row in rows:
@@ -215,7 +280,7 @@ else:
 
     def db_conteos():
         conn = get_db()
-        rows = conn.execute('SELECT key, value FROM store').fetchall()
+        rows = conn.execute("SELECT key, value FROM store WHERE key NOT LIKE 'chg%'").fetchall()
         conn.close()
         out = {}
         for r in rows:
@@ -257,8 +322,40 @@ else:
             return base
         return op
 
+    def db_rev():
+        conn = get_db()
+        row = conn.execute("SELECT value FROM store WHERE key = 'hotel_rev'").fetchone()
+        conn.close()
+        try:
+            return int(row['value']) if row else 0
+        except Exception:
+            return 0
+
+    def _chg_key(n):
+        return 'chg_%09d' % n
+
+    def db_cambios(desde):
+        conn = get_db()
+        rows = conn.execute("SELECT key, value FROM store WHERE key LIKE 'chg%' ORDER BY key").fetchall()
+        conn.close()
+        lim = _chg_key(desde)
+        hay = [r['value'] for r in rows if r['key'] > lim]
+        primera = rows[0]['key'] if rows else None
+        return hay, primera
+
     def db_merge(ops):
         conn = get_db()
+        row = conn.execute("SELECT value FROM store WHERE key = 'hotel_rev'").fetchone()
+        try:
+            rev = int(row['value']) if row else 0
+        except Exception:
+            rev = 0
+        rev += 1
+        conn.execute("INSERT OR REPLACE INTO store (key, value) VALUES ('hotel_rev', ?)", (str(rev),))
+        conn.execute("INSERT OR REPLACE INTO store (key, value) VALUES (?, ?)",
+                     (_chg_key(rev), json.dumps({'rev': rev, 'ops': ops}, ensure_ascii=False)))
+        if rev % 50 == 0 and rev > 200:
+            conn.execute("DELETE FROM store WHERE key LIKE 'chg%' AND key < ?", (_chg_key(rev - 200),))
         for key, op in ops.items():
             row = conn.execute('SELECT value FROM store WHERE key = ?', (key,)).fetchone()
             actual = None
@@ -317,8 +414,12 @@ def efectivo():
 @app.route('/api/conteo')
 def conteo():
     # Devuelve cuantos registros tiene cada clave en el servidor. Se usa para
-    # confirmar despues de guardar sin descargar los datos completos.
-    return jsonify(db_conteos())
+    # confirmar despues de guardar sin descargar los datos completos, y para
+    # que cada dispositivo sepa si alguien mas guardo algo: '_rev' cambia solo
+    # cuando se fusionan datos, asi que basta compararlo.
+    d = db_conteos()
+    d['_rev'] = db_rev()
+    return jsonify(d)
 
 @app.route('/api/load')
 def load():
@@ -332,6 +433,43 @@ def save():
     db_save(data)
     return jsonify({'ok': True})
 
+@app.route('/api/desde')
+def desde():
+    # Entrega SOLO lo escrito despues de la version que trae el equipo. Pesa
+    # unos kilobytes en vez de los 3,7 MB de /api/load, que es lo que permite
+    # mantener varios dispositivos al dia sin volver a agotar la transferencia.
+    try:
+        n = int(request.args.get('rev', '0'))
+    except Exception:
+        n = 0
+    rev = db_rev()
+    if n <= 0 or n > rev:
+        # Sin referencia, o con una version que este servidor no reconoce
+        # (una base restaurada, por ejemplo): mejor bajar todo una vez.
+        return jsonify({'rev': rev, 'recargar': True, 'cambios': []})
+    crudos, primera = db_cambios(n)
+    # Si lo mas antiguo que se guarda es posterior a lo que el equipo conoce,
+    # hay un hueco: faltarian cambios y aplicar solo los que hay dejaria los
+    # datos a medias. Se pide una carga completa, que siempre es correcta.
+    hueco = False
+    if rev > n:
+        if primera is None:
+            hueco = True
+        else:
+            try:
+                hueco = int(str(primera)[4:]) > n + 1
+            except Exception:
+                hueco = True
+    if hueco:
+        return jsonify({'rev': rev, 'recargar': True, 'cambios': []})
+    cambios = []
+    for c in crudos:
+        try:
+            cambios.append(json.loads(c))
+        except Exception:
+            return jsonify({'rev': rev, 'recargar': True, 'cambios': []})
+    return jsonify({'rev': rev, 'recargar': False, 'cambios': cambios})
+
 @app.route('/api/merge', methods=['POST'])
 def merge():
     # Guardado registro por registro. El navegador manda solo lo que escribio
@@ -342,7 +480,9 @@ def merge():
     if not ops:
         return jsonify({'ok': False, 'error': 'No data'}), 400
     db_merge(ops)
-    return jsonify({'ok': True})
+    # Se devuelve la version resultante para que quien guardo no confunda su
+    # propio cambio con el de otro equipo y se baje los datos sin necesidad.
+    return jsonify({'ok': True, 'rev': db_rev()})
 
 @app.route('/api/import', methods=['POST'])
 def import_data():

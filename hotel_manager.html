@@ -861,6 +861,10 @@ function _enviarGuardado(body,payload,strs,cnts,items,_extraMsgId,intento,gen){
     .then(function(r){
       if(!r.ok)throw new Error('HTTP '+r.status);
       if(gen!==_genGuardado)return;
+      // El servidor devuelve la version resultante. Sin esto, este equipo
+      // tomaria su propio guardado por un cambio ajeno y se bajaria los
+      // 3,7 MB de datos cada vez que escribe algo.
+      r.json().then(function(j){if(j&&j.rev!=null)_revServidor=j.rev;}).catch(function(){});
       // Solo se actualiza la referencia de lo que el servidor confirmo.
       if(!_baseEnviado)_baseEnviado={};
       for(var k in payload){
@@ -939,7 +943,11 @@ function _programarVerificacion(){
         if(!Array.isArray(local[k]))continue;      // el servidor solo cuenta listas
         var ns=d[k];
         if(typeof ns!=="number"||ns<0)continue;
-        if(local[k].length!==ns)difs.push((_NOMBRE_CLAVE[k]||k)+": "+local[k].length+" aquí / "+ns+" en el servidor");
+        // Solo preocupa que el servidor tenga MENOS: eso significa que algo de
+        // aqui no llego. Que tenga mas es normal desde que varios equipos
+        // trabajan a la vez —son los registros del otro, que este todavia no
+        // ha recibido— y avisarlo seria una falsa alarma cada pocos minutos.
+        if(local[k].length>ns)difs.push((_NOMBRE_CLAVE[k]||k)+": "+local[k].length+" aquí / "+ns+" en el servidor");
       }
       var m=document.getElementById("saved-msg");
       if(!m)return;
@@ -1040,6 +1048,26 @@ function _limpiarFechasHuerfanas(){
 
 function cargar(){
   return fetch('/api/load').then(function(res){return res.json();}).then(function(d){
+    _aplicarDatos(d);
+    _limpiarFechasHuerfanas();
+    _datosListos=true;
+    // La referencia queda fijada con lo que el servidor acaba de entregar.
+    _fijarBase();
+    return _migrarIds();
+  }).catch(function(e){
+    console.error("Error cargando:",e);
+    _datosListos=true;
+    // Tambien si fallo la carga: sin referencia se enviarian las 9 claves
+    // desde una copia vacia y se borraria lo que hay en el servidor.
+    _fijarBase();
+  });
+}
+
+// Coloca en memoria lo que entrega el servidor. Esta aparte porque la usan dos
+// caminos: la carga inicial y el refresco automatico. Si estuvieran duplicadas
+// bastaria con tocar una y olvidar la otra para que el refresco dejara una
+// parte de los datos sin actualizar.
+function _aplicarDatos(d){
     try{
       var r=d.hotel_reg;
       if(r){HABS.forEach(function(h){if(r[h]){if(!r[h].pasajeros)r[h].pasajeros=[{doc:"",apellidos:r[h].apellidos||"",nombre:r[h].nombre||"",sexo:"",fnac:"",rh:"",tel:""}];reg[h]=r[h];}});}
@@ -1057,10 +1085,9 @@ function cargar(){
       if(d.hotel_nom_gp&&Array.isArray(d.hotel_nom_gp)){d.hotel_nom_gp.forEach(function(v){if(v)agregarNomGpOpcion(v);});}
       if(d.hotel_cats_custom&&typeof d.hotel_cats_custom==="object"){CATS_CUSTOM=d.hotel_cats_custom;reconstruirCats();}
     }catch(e){console.error("Error cargando:",e);}
-    _limpiarFechasHuerfanas();
-    _datosListos=true;
-    // La referencia queda fijada con lo que el servidor acaba de entregar.
-    _fijarBase();
+}
+
+function _migrarIds(){
     // Migracion de una sola vez: los registros viejos no tienen identificador,
     // y sin el no se pueden mandar sueltos. Se numeran y se sube la lista
     // completa UNA vez por /api/save (reemplazo), porque si se mandara como
@@ -1092,14 +1119,200 @@ function cargar(){
           });
       }
     }catch(e){console.error("Error numerando registros:",e);}
+}
+
+// ── REFRESCO AUTOMATICO ─────────────────────────────────────────────────────
+// La app bajaba los datos una sola vez, al entrar. Lo que registraba otro
+// equipo no se veia hasta recargar a mano. Ahora cada medio minuto pregunta
+// por el numero de version —unos bytes— y SOLO baja los 3,7 MB de datos
+// cuando ese numero cambio. Preguntar es casi gratis; bajar cada 30 segundos
+// desde cada dispositivo fue lo que agoto la cuota de Supabase en julio.
+var _revServidor=null;      // ultima version que este equipo da por conocida
+var _ultimoRefrescoCompleto=0,_refrescando=false;
+var _MIN_ENTRE_COMPLETOS=120000;  // bajar los 3,7 MB, como mucho cada 2 minutos
+
+// Aplica una operacion sobre lo que hay en memoria. Es la misma regla que usa
+// el servidor en _fusionar(): si se separan, los dos lados dejan de coincidir.
+function _fusionarLocal(actual,op){
+  if(!op||typeof op!=="object"||!("_tipo" in op))return op;
+  if(op._tipo==="lista"){
+    var base=Array.isArray(actual)?actual.slice():[],pos={};
+    base.forEach(function(r,i){if(r&&typeof r==="object"&&r.id!==undefined&&r.id!==null)pos[String(r.id)]=i;});
+    (op.del||[]).forEach(function(rid){var i=pos[String(rid)];if(i!==undefined)base[i]=null;});
+    (op.put||[]).forEach(function(rec){
+      var rid=(rec&&typeof rec==="object"&&rec.id!==undefined&&rec.id!==null)?String(rec.id):null;
+      var i=(rid!==null)?pos[rid]:undefined;
+      if(i!==undefined)base[i]=rec;
+      else{if(rid!==null)pos[rid]=base.length;base.push(rec);}
+    });
+    return base.filter(function(r){return r!==null;});
+  }
+  if(op._tipo==="mapa"){
+    var b={},a=(actual&&typeof actual==="object")?actual:{};
+    for(var k in a)b[k]=a[k];
+    var p=op.put||{};
+    for(var k2 in p)b[k2]=p[k2];
+    (op.del||[]).forEach(function(k3){delete b[k3];});
+    return b;
+  }
+  return op;
+}
+
+function _ponerClave(k,v){
+  if(k==="hotel_reg"){
+    if(v&&typeof v==="object")for(var h in v){
+      if(!v[h])continue;
+      if(!v[h].pasajeros)v[h].pasajeros=[{doc:"",apellidos:"",nombre:"",sexo:"",fnac:"",rh:"",tel:""}];
+      reg[h]=v[h];
+    }
+    return;
+  }
+  if(k==="hotel_gastos"){gastos=v;return;}
+  if(k==="hotel_gastosdet"){gastosDetalle=v;return;}
+  if(k==="hotel_productos"){productos=v;return;}
+  if(k==="hotel_historial"){historialVentas=v;return;}
+  if(k==="hotel_estadias"){historialesEst=v;return;}
+  if(k==="hotel_compras"){comprasTienda=v;return;}
+  if(k==="hotel_saldo"){saldoInicial=v;return;}
+  if(k==="hotel_ajustes"){ajustes=v;return;}
+  if(k==="hotel_abonos"){abonos=v;return;}
+}
+
+function _aplicarOp(k,op){
+  _ponerClave(k,_fusionarLocal(_payloadCompleto()[k],op));
+}
+
+// Momentos en que NO se puede refrescar sin estorbar o sin arriesgar datos.
+function _puedeRefrescar(){
+  if(!_datosListos||modoAyer||_refrescando)return false;
+  // Cambios propios sin confirmar: refrescar los sobrescribiria con lo del
+  // servidor y se perderian sin dejar rastro.
+  if(_hayPendientes())return false;
+  var ov=document.getElementById("overlay");
+  if(ov&&ov.style.display==="flex")return false;   // hay una ventana abierta
+  var a=document.activeElement;
+  if(a&&/^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName))return false;  // escribiendo
+  if(_habEditando)return false;
+  if(_timerVerif)return false;                     // guardado recien hecho
+  return true;
+}
+
+// Pide SOLO lo escrito desde la ultima version conocida. Si el servidor avisa
+// que falta historial —este equipo estuvo apagado mucho rato— baja todo.
+function _refrescar(){
+  _refrescando=true;
+  fetch('/api/desde?rev='+_revServidor+'&t='+Date.now()).then(function(r){
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    return r.json();
+  }).then(function(d){
+    // Entre que se pidio y que llego pudo abrirse una ventana o empezarse a
+    // escribir. Se vuelve a comprobar antes de tocar nada.
+    if(!_puedeRefrescarTrasEspera()){_refrescando=false;return;}
+    if(d.recargar){_refrescarCompleto(d.rev);return;}
+    if(!d.cambios||!d.cambios.length){_revServidor=d.rev;_refrescando=false;return;}
+    try{
+      d.cambios.forEach(function(c){
+        var ops=c&&c.ops;
+        if(!ops)return;
+        for(var k in ops)_aplicarOp(k,ops[k]);
+      });
+    }catch(e){
+      // Ante cualquier duda, no se deja la memoria a medias: se baja todo.
+      console.error("Error aplicando cambios, se recarga completo:",e);
+      _refrescarCompleto(d.rev);return;
+    }
+    _limpiarFechasHuerfanas();
+    _fijarBase();                 // la referencia pasa a ser lo que hay ahora
+    _revServidor=d.rev;
+    _redibujarTodo();
+    _avisarRefresco();
+    _refrescando=false;
   }).catch(function(e){
-    console.error("Error cargando:",e);
-    _datosListos=true;
-    // Tambien si fallo la carga: sin referencia se enviarian las 9 claves
-    // desde una copia vacia y se borraria lo que hay en el servidor.
-    _fijarBase();
+    console.warn("No se pudieron traer los cambios:",e);
+    _refrescando=false;           // se reintenta en el siguiente turno
   });
 }
+
+function _refrescarCompleto(rev){
+  // Camino caro: 3,7 MB. Se limita a uno cada dos minutos para que un fallo
+  // repetido no se convierta en el consumo que agoto la cuota en julio.
+  if(Date.now()-_ultimoRefrescoCompleto<_MIN_ENTRE_COMPLETOS){_refrescando=false;return;}
+  _ultimoRefrescoCompleto=Date.now();
+  fetch('/api/load?t='+Date.now()).then(function(r){
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    return r.json();
+  }).then(function(d){
+    if(!_puedeRefrescarTrasEspera()){_refrescando=false;return;}
+    // Una respuesta a medias dejaria la pantalla vacia y, peor, el siguiente
+    // guardado mandaria esa lista corta. Mejor no tocar nada y reintentar.
+    var tot=(d.hotel_gastosdet||[]).length+(d.hotel_estadias||[]).length;
+    if(tot<500){console.warn("Refresco descartado: datos incompletos");_refrescando=false;return;}
+    _aplicarDatos(d);
+    _limpiarFechasHuerfanas();
+    _fijarBase();
+    _revServidor=rev;
+    _redibujarTodo();
+    _avisarRefresco();
+    _refrescando=false;
+  }).catch(function(e){
+    console.error("Error refrescando:",e);
+    _refrescando=false;
+  });
+}
+
+// Igual que _puedeRefrescar pero sin exigir _refrescando=false, porque en este
+// punto somos nosotros quienes lo tenemos puesto.
+function _puedeRefrescarTrasEspera(){
+  if(!_datosListos||modoAyer)return false;
+  if(_hayPendientes())return false;
+  var ov=document.getElementById("overlay");
+  if(ov&&ov.style.display==="flex")return false;
+  var a=document.activeElement;
+  if(a&&/^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName))return false;
+  if(_habEditando)return false;
+  return true;
+}
+
+function _redibujarTodo(){
+  try{
+    renderTable();calcTotales();
+    var act=document.querySelector(".tab-content.active");
+    var id=act?act.id.replace("tab-",""):"";
+    if(id==="tienda")renderTienda();
+    else if(id==="gastos")renderGastosTab();
+    else if(id==="caja")renderCaja();
+  }catch(e){console.error("Error redibujando:",e);}
+}
+
+function _avisarRefresco(){
+  var m=document.getElementById("saved-msg");
+  if(!m)return;
+  m.innerHTML="&#128260; Actualizado con los cambios de otro equipo";
+  m.style.color="#1a6bb5";m.style.background="";m.style.padding="";m.style.borderRadius="";
+  setTimeout(function(){if(m.innerHTML.indexOf("Actualizado")>-1)m.innerHTML="";},4000);
+}
+
+function _mirarSiHayNovedad(){
+  if(!_datosListos)return;     // todavia en la pantalla de entrada
+  if(document.hidden)return;   // pestana en segundo plano: no gastar llamadas
+  fetch('/api/conteo?t='+Date.now()).then(function(r){
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    return r.json();
+  }).then(function(d){
+    var rev=d._rev;
+    if(rev==null)return;                       // servidor sin la version: nada
+    if(_revServidor==null){_revServidor=rev;return;}
+    if(rev===_revServidor)return;              // nadie ha guardado nada nuevo
+    if(!_puedeRefrescar())return;              // se reintenta en 30 segundos
+    _refrescar();
+  }).catch(function(e){
+    // Sin conexion no se avisa: el guardado ya tiene su propio aviso y este
+    // no debe llenar la pantalla de errores por una caida de un momento.
+    console.warn("No se pudo consultar la version:",e);
+  });
+}
+
+setInterval(_mirarSiHayNovedad,30000);
 
 function cargarConReintentos(intentosRestantes){
   cargar().then(function(){
@@ -1113,6 +1326,10 @@ function cargarConReintentos(intentosRestantes){
         if(av){av.textContent="⚠️ Error cargando datos — intente de nuevo";av.style.color="#c00";}
       }
       renderTable();verificarBackup();
+      // Se anota la version de entrada de una vez. Si se dejara para el primer
+      // vistazo, lo que otro equipo guardara en esos 30 segundos se daria por
+      // ya conocido y no se mostraria hasta el cambio siguiente.
+      _mirarSiHayNovedad();
     }
   });
 }
