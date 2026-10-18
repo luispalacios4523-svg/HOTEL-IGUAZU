@@ -644,10 +644,98 @@ function _contar(v){
   return -1;
 }
 
+// ── GUARDADO REGISTRO POR REGISTRO ──────────────────────────────────────────
+// Antes, cada guardado mandaba la LISTA COMPLETA y el servidor la reemplazaba.
+// Con dos equipos abiertos a la vez, el que guardaba de ultimo pisaba con su
+// copia vieja los registros que el otro acababa de crear: desaparecian sin
+// aviso. Ahora se manda solo "agrega este", "cambia este", "quita este", y el
+// servidor lo aplica sobre lo que ya tiene. Nadie puede borrar lo que no vio.
+var _LISTAS_ID={hotel_gastosdet:1,hotel_estadias:1,hotel_compras:1,hotel_abonos:1,hotel_historial:1};
+// Foto por registro de lo ultimo confirmado: clave → {id: texto del registro}.
+var _baseItems={};
+
+// Desglosa un valor en sus registros, indexados por su identificador.
+function _itemsDe(k,v){
+  var m={};
+  if(_LISTAS_ID[k]){
+    if(Array.isArray(v))v.forEach(function(r){
+      if(r&&typeof r==="object"&&r.id!==undefined&&r.id!==null&&r.id!=="")m[String(r.id)]=JSON.stringify(r);
+    });
+  } else if(k==="hotel_reg"){
+    if(v&&typeof v==="object")for(var h in v)m[h]=JSON.stringify(v[h]);
+  }
+  return m;
+}
+
+// Compara los registros de ahora con los confirmados y devuelve la operacion
+// que el servidor debe aplicar. Si algo quedo sin identificador, se devuelve
+// null y esa clave se manda completa, como antes: nunca se pierde un dato por
+// no saber nombrarlo.
+function _deltaDe(k,v){
+  if(!_LISTAS_ID[k]&&k!=="hotel_reg")return null;
+  if(_LISTAS_ID[k]){
+    if(!Array.isArray(v))return null;
+    for(var i=0;i<v.length;i++){
+      var r=v[i];
+      if(!r||typeof r!=="object"||r.id===undefined||r.id===null||r.id==="")return null;
+    }
+  }
+  var antes=_baseItems[k];
+  if(!antes)return null; // sin referencia: se manda completo
+  var ahora=_itemsDe(k,v),put=[],del=[],putMapa={};
+  for(var id in ahora){
+    if(antes[id]!==ahora[id]){
+      if(_LISTAS_ID[k])put.push(JSON.parse(ahora[id]));
+      else putMapa[id]=JSON.parse(ahora[id]);
+    }
+  }
+  for(var id2 in antes){if(!(id2 in ahora))del.push(id2);}
+  if(_LISTAS_ID[k])return {_tipo:"lista",put:put,del:del};
+  return {_tipo:"mapa",put:putMapa,del:del};
+}
+
+// Identificador estable a partir del contenido. Es deterministico a proposito:
+// dos equipos que numeren los mismos registros viejos llegan al mismo id, asi
+// que la migracion no puede duplicarlos.
+function _hashTxt(s){
+  var h=5381;
+  for(var i=0;i<s.length;i++)h=((h*33)^s.charCodeAt(i))>>>0;
+  return h.toString(36);
+}
+
+// Identificador para un registro nuevo. Lleva una parte al azar porque dos
+// equipos pueden guardar en el mismo milisegundo y no deben coincidir.
+function _nuevoId(){
+  return String(Date.now())+"-"+Math.random().toString(36).slice(2,8);
+}
+
+// Los registros historicos se guardaron sin identificador (hay mas de 10.000).
+// Sin el no se puede mandar un registro suelto. Se les pone uno una sola vez.
+function _asegurarIds(){
+  var hubo=false;
+  for(var k in _LISTAS_ID){
+    var arr=_payloadCompleto()[k];
+    if(!Array.isArray(arr))continue;
+    var vistos={};
+    arr.forEach(function(r){
+      if(!r||typeof r!=="object")return;
+      if(r.id!==undefined&&r.id!==null&&r.id!=="")return;
+      var base=_hashTxt(JSON.stringify(r));
+      var n=(vistos[base]=(vistos[base]||0)+1);
+      r.id="h"+base+(n>1?("-"+n):"");
+      hubo=true;
+    });
+  }
+  return hubo;
+}
+
 // Fija la referencia con lo que el servidor acaba de entregar.
 function _fijarBase(){
-  var c=_payloadCompleto();_baseEnviado={};_baseConteo={};
-  for(var k in c){_baseEnviado[k]=JSON.stringify(c[k]);_baseConteo[k]=_contar(c[k]);}
+  var c=_payloadCompleto();_baseEnviado={};_baseConteo={};_baseItems={};
+  for(var k in c){
+    _baseEnviado[k]=JSON.stringify(c[k]);_baseConteo[k]=_contar(c[k]);
+    if(_LISTAS_ID[k]||k==="hotel_reg")_baseItems[k]=_itemsDe(k,c[k]);
+  }
 }
 
 // ── AVISO JUNTO A LA FILA ────────────────────────────────────────────────────
@@ -713,12 +801,17 @@ function _msgGuardado(_extraMsgId){
 function guardar(_extraMsgId){
   if(!_datosListos)return;
   var completo=_payloadCompleto();
-  var payload={},strs={},cnts={},hayCambios=false;
+  var payload={},strs={},cnts={},items={},hayCambios=false;
   for(var k in completo){
     var s=JSON.stringify(completo[k]);
     strs[k]=s;cnts[k]=_contar(completo[k]);
     // Si no hay referencia todavia, se envia todo (comportamiento anterior).
-    if(!_baseEnviado||_baseEnviado[k]!==s){payload[k]=completo[k];hayCambios=true;}
+    if(!_baseEnviado||_baseEnviado[k]!==s){
+      var d=(_baseEnviado?_deltaDe(k,completo[k]):null);
+      payload[k]=(d!==null?d:completo[k]);
+      if(d!==null)items[k]=_itemsDe(k,completo[k]);
+      hayCambios=true;
+    }
   }
   if(!hayCambios){_msgGuardado(_extraMsgId);return;}
 
@@ -752,7 +845,7 @@ function guardar(_extraMsgId){
   // mismo, de modo que la referencia que se marca como guardada corresponde
   // siempre a lo que de verdad viajo.
   _genGuardado++;
-  _enviarGuardado(JSON.stringify(payload),payload,strs,cnts,_extraMsgId,0,_genGuardado);
+  _enviarGuardado(JSON.stringify(payload),payload,strs,cnts,items,_extraMsgId,0,_genGuardado);
 }
 
 // Esperas entre reintentos: 2, 5, 10 y 15 segundos. En total unos 32 segundos,
@@ -760,17 +853,20 @@ function guardar(_extraMsgId){
 var _ESPERAS=[2000,5000,10000,15000];
 var _genGuardado=0;
 
-function _enviarGuardado(body,payload,strs,cnts,_extraMsgId,intento,gen){
+function _enviarGuardado(body,payload,strs,cnts,items,_extraMsgId,intento,gen){
   // Si mientras se reintentaba se inicio un guardado mas nuevo, este queda
   // obsoleto: aquel recalculo la diferencia e incluye todo lo que este traia.
   if(gen!==_genGuardado)return;
-  fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:body})
+  fetch('/api/merge',{method:'POST',headers:{'Content-Type':'application/json'},body:body})
     .then(function(r){
       if(!r.ok)throw new Error('HTTP '+r.status);
       if(gen!==_genGuardado)return;
       // Solo se actualiza la referencia de lo que el servidor confirmo.
       if(!_baseEnviado)_baseEnviado={};
-      for(var k in payload){_baseEnviado[k]=strs[k];_baseConteo[k]=cnts[k];}
+      for(var k in payload){
+        _baseEnviado[k]=strs[k];_baseConteo[k]=cnts[k];
+        if(items[k])_baseItems[k]=items[k];
+      }
       window._ultimoExtraMsgId=null;
       _msgGuardado(_extraMsgId);
       // El servidor respondio 200, pero eso solo dice que recibio y confirmo.
@@ -793,7 +889,7 @@ function _enviarGuardado(body,payload,strs,cnts,_extraMsgId,intento,gen){
         if(_extraMsgId){var em=document.getElementById(_extraMsgId);if(em){em.innerHTML="⏳ Reintentando...";em.style.color="#7a5c00";}}
         mostrarAvisoFila("⏳ Sin conexión — reintentando ("+(intento+1)+"/"+_ESPERAS.length+")","#7a5c00","#fff3cd","#c9a227",0);
         setTimeout(function(){
-          _enviarGuardado(body,payload,strs,cnts,_extraMsgId,intento+1,gen);
+          _enviarGuardado(body,payload,strs,cnts,items,_extraMsgId,intento+1,gen);
         },_ESPERAS[intento]);
         return;
       }
@@ -965,6 +1061,37 @@ function cargar(){
     _datosListos=true;
     // La referencia queda fijada con lo que el servidor acaba de entregar.
     _fijarBase();
+    // Migracion de una sola vez: los registros viejos no tienen identificador,
+    // y sin el no se pueden mandar sueltos. Se numeran y se sube la lista
+    // completa UNA vez por /api/save (reemplazo), porque si se mandara como
+    // "agrega estos" el servidor —que aun no los reconoce— los duplicaria.
+    // Solo si la carga trajo datos: con una carga a medias se borraria lo bueno.
+    try{
+      if(gastosDetalle.length+historialesEst.length>=500&&_asegurarIds()){
+        var mig={};
+        for(var mk in _LISTAS_ID)mig[mk]=_payloadCompleto()[mk];
+        return fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(mig)})
+          .then(function(r){
+            if(!r.ok)throw new Error('HTTP '+r.status);
+            console.log("Identificadores asignados a los registros historicos.");
+            _fijarBase();
+          }).catch(function(e){
+            // Si no se pudo subir, se recarga la referencia sin los ids para
+            // no quedar con una numeracion que el servidor no conoce.
+            console.error("No se pudo numerar los registros:",e);
+            // Una sola vez, para no quedar recargando en bucle si el servidor
+            // esta caido: en ese caso se avisa y no se guarda nada raro.
+            if(!sessionStorage.getItem("_migReintento")){
+              sessionStorage.setItem("_migReintento","1");
+              location.reload();
+              return;
+            }
+            _datosListos=false;
+            var av=document.getElementById("saved-msg");
+            if(av){av.innerHTML="⚠️ Sin conexión al servidor — <b>no escriba datos</b>, recargue en un rato";av.style.color="#c0392b";}
+          });
+      }
+    }catch(e){console.error("Error numerando registros:",e);}
   }).catch(function(e){
     console.error("Error cargando:",e);
     _datosListos=true;
@@ -1624,7 +1751,7 @@ function _pushHistorial(h,r,hues,salida,noches){
   }
   if(idx===-1){
     if(hues.trim()||val>0){
-      historialesEst.push({hab:h,huesped:hues||"Sin nombre",entrada:r.fechaEntrada,salida:salida,
+      historialesEst.push({id:_nuevoId(),hab:h,huesped:hues||"Sin nombre",entrada:r.fechaEntrada,salida:salida,
         noches:noches,valor:val,pago:r.pago||"",canal:r.canal||"",
         pasajeros:(r.pasajeros||[]).map(function(p){return Object.assign({},p);})});
     }
@@ -2430,7 +2557,7 @@ function cobrarVenta(){
   var fechaVenta=document.getElementById("venta-fecha");
   var fv=fechaVenta&&fechaVenta.value?fechaVenta.value:new Date().toLocaleDateString('en-CA');
   var _ahora=new Date();var _tsV=_ahora.toLocaleDateString('en-CA')+" "+_ahora.toTimeString().slice(0,5);
-  historialVentas.push({fecha:fv,items:carrito.slice(),total:total,ganancia:gan,pago:pago,creadoPor:sesion.nombre||sesion.usuario||"",creadoEn:_tsV});
+  historialVentas.push({id:_nuevoId(),fecha:fv,items:carrito.slice(),total:total,ganancia:gan,pago:pago,creadoPor:sesion.nombre||sesion.usuario||"",creadoEn:_tsV});
   var el2=document.getElementById("carrito-pago");if(el2){el2.value="";el2.style.border="2px solid #ccc";el2.style.background="";}
   carrito=[];
   guardar();renderTienda();renderCarrito();calcTotales();
@@ -3594,7 +3721,7 @@ window.addEventListener('beforeunload', function(){
     if(hoy>=fs){
       // Archivar en historial — con nombre o sin él
       var huesped=tieneNombre?nc(h):"Sin nombre";
-      historialesEst.push({hab:h,huesped:huesped,entrada:r.fechaEntrada,salida:fe.getFullYear()+"-"+String(fs.getMonth()+1).padStart(2,"0")+"-"+String(fs.getDate()).padStart(2,"0"),noches:noches,valor:nm(r.valor),pago:r.pago||"",canal:r.canal||"",pasajeros:r.pasajeros?r.pasajeros.slice():[]});
+      historialesEst.push({id:_nuevoId(),hab:h,huesped:huesped,entrada:r.fechaEntrada,salida:fe.getFullYear()+"-"+String(fs.getMonth()+1).padStart(2,"0")+"-"+String(fs.getDate()).padStart(2,"0"),noches:noches,valor:nm(r.valor),pago:r.pago||"",canal:r.canal||"",pasajeros:r.pasajeros?r.pasajeros.slice():[]});
       reg[h]=initHab(h);cambio=true;
     } else {
       var hoyStr=hoy.getFullYear()+"-"+String(hoy.getMonth()+1).padStart(2,"0")+"-"+String(hoy.getDate()).padStart(2,"0");
@@ -3808,7 +3935,7 @@ function ventaManual(){
   }
   // Venta manual va directo al historial (no al carrito)
   var _ahoraM=new Date();var _tsM=_ahoraM.toLocaleDateString('en-CA')+" "+_ahoraM.toTimeString().slice(0,5);
-  historialVentas.push({fecha:fecha,items:[{nombre:desc,precio:valor,costo:0,qty:1}],total:valor,ganancia:valor,pago:pago,manual:true,creadoPor:sesion.nombre||sesion.usuario||"",creadoEn:_tsM});
+  historialVentas.push({id:_nuevoId(),fecha:fecha,items:[{nombre:desc,precio:valor,costo:0,qty:1}],total:valor,ganancia:valor,pago:pago,manual:true,creadoPor:sesion.nombre||sesion.usuario||"",creadoEn:_tsM});
   guardar();calcTotales();
   document.getElementById('vm-desc').value='';
   document.getElementById('vm-valor').value='';

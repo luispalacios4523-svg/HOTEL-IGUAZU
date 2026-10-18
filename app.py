@@ -92,6 +92,66 @@ if DATABASE_URL:
                 pass
         return {k: v for k, v in rows}
 
+    def _fusionar(actual, op):
+        # Aplica una operacion sobre lo que ya hay guardado, en vez de
+        # reemplazarlo. Es el corazon del arreglo: un navegador con una copia
+        # vieja ya no puede borrar registros que nunca vio, porque no manda
+        # listas completas sino 'agrega esto', 'cambia esto', 'quita esto'.
+        if not isinstance(op, dict) or '_tipo' not in op:
+            return op  # valor suelto (saldo, ajustes): se guarda tal cual
+        if op['_tipo'] == 'lista':
+            base = actual if isinstance(actual, list) else []
+            pos = {}
+            for i, r in enumerate(base):
+                if isinstance(r, dict) and r.get('id') is not None:
+                    pos[str(r['id'])] = i
+            for rid in (op.get('del') or []):
+                i = pos.get(str(rid))
+                if i is not None:
+                    base[i] = None
+            for rec in (op.get('put') or []):
+                rid = str(rec.get('id')) if isinstance(rec, dict) else None
+                i = pos.get(rid) if rid is not None else None
+                if i is not None:
+                    base[i] = rec
+                else:
+                    pos[rid] = len(base)
+                    base.append(rec)
+            return [r for r in base if r is not None]
+        if op['_tipo'] == 'mapa':
+            base = actual if isinstance(actual, dict) else {}
+            for k, v in (op.get('put') or {}).items():
+                base[k] = v
+            for k in (op.get('del') or []):
+                base.pop(k, None)
+            return base
+        return op
+
+    def db_merge(ops):
+        # Igual que db_save: todo o nada dentro de una transaccion.
+        conn = get_db()
+        try:
+            conn.run('BEGIN')
+            for key, op in ops.items():
+                rows = conn.run('SELECT value FROM store WHERE key = :key', key=key)
+                actual = None
+                if rows:
+                    try:
+                        actual = json.loads(rows[0][0])
+                    except Exception:
+                        actual = None
+                nuevo = _fusionar(actual, op)
+                conn.run(
+                    'INSERT INTO store (key, value) VALUES (:key, :value) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value',
+                    key=key, value=json.dumps(nuevo, ensure_ascii=False)
+                )
+            conn.run('COMMIT')
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
     def db_save(data):
         # Todo o nada: si algo falla a mitad, Postgres descarta los cambios
         # y los datos quedan como estaban. Nunca se guarda "una parte".
@@ -166,6 +226,53 @@ else:
                 out[r['key']] = -1
         return out
 
+    def _fusionar(actual, op):
+        if not isinstance(op, dict) or '_tipo' not in op:
+            return op
+        if op['_tipo'] == 'lista':
+            base = actual if isinstance(actual, list) else []
+            pos = {}
+            for i, r in enumerate(base):
+                if isinstance(r, dict) and r.get('id') is not None:
+                    pos[str(r['id'])] = i
+            for rid in (op.get('del') or []):
+                i = pos.get(str(rid))
+                if i is not None:
+                    base[i] = None
+            for rec in (op.get('put') or []):
+                rid = str(rec.get('id')) if isinstance(rec, dict) else None
+                i = pos.get(rid) if rid is not None else None
+                if i is not None:
+                    base[i] = rec
+                else:
+                    pos[rid] = len(base)
+                    base.append(rec)
+            return [r for r in base if r is not None]
+        if op['_tipo'] == 'mapa':
+            base = actual if isinstance(actual, dict) else {}
+            for k, v in (op.get('put') or {}).items():
+                base[k] = v
+            for k in (op.get('del') or []):
+                base.pop(k, None)
+            return base
+        return op
+
+    def db_merge(ops):
+        conn = get_db()
+        for key, op in ops.items():
+            row = conn.execute('SELECT value FROM store WHERE key = ?', (key,)).fetchone()
+            actual = None
+            if row:
+                try:
+                    actual = json.loads(row['value'])
+                except Exception:
+                    actual = None
+            nuevo = _fusionar(actual, op)
+            conn.execute('INSERT OR REPLACE INTO store (key, value) VALUES (?, ?)',
+                         (key, json.dumps(nuevo, ensure_ascii=False)))
+        conn.commit()
+        conn.close()
+
     def db_save(data):
         conn = get_db()
         for key, value in data.items():
@@ -223,6 +330,18 @@ def save():
     if not data:
         return jsonify({'ok': False, 'error': 'No data'}), 400
     db_save(data)
+    return jsonify({'ok': True})
+
+@app.route('/api/merge', methods=['POST'])
+def merge():
+    # Guardado registro por registro. El navegador manda solo lo que escribio
+    # ('agrega esto', 'cambia esto', 'quita esto') y el servidor lo aplica
+    # sobre lo que ya hay. Dos equipos abiertos a la vez ya no se borran
+    # mutuamente, porque ninguno manda la lista completa.
+    ops = request.json
+    if not ops:
+        return jsonify({'ok': False, 'error': 'No data'}), 400
+    db_merge(ops)
     return jsonify({'ok': True})
 
 @app.route('/api/import', methods=['POST'])
