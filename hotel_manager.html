@@ -394,7 +394,8 @@ td{padding:4px 6px;vertical-align:middle;}
           <div id="aseo-chips" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px;min-height:24px;"></div>
           <input type="hidden" id="g-desc-aseo-final"/>
         </div>
-        <input type="text" id="g-desc-libre" placeholder="Detalle del gasto" style="width:220px;padding:7px 9px;border:1px solid #ccc;border-radius:6px;font-size:14px;"/>
+        <input type="text" id="g-desc-libre" placeholder="Detalle del gasto" oninput="avisarCatSugerida()" style="width:220px;padding:7px 9px;border:1px solid #ccc;border-radius:6px;font-size:14px;"/>
+        <div id="g-cat-sugerida" style="display:none;margin-top:6px;font-size:12px;padding:6px 10px;background:#fff3cd;border:1.5px solid #c9a227;border-radius:6px;color:#7a5c00;"></div>
       </div>
       <button id="btn-registrar-gasto" class="tbtn tbtn-warn" onclick="registrarGasto()" style="padding:8px 18px;font-size:14px;">+ Registrar</button>
       <button class="vz-mic" onclick="iniciarVoz('gasto')" title="Dictar el gasto">&#127908; Por voz</button>
@@ -505,6 +506,55 @@ var CANALES=["","Hotel","Booking","Ayenda","Liquidos","Vitrina"];
 var PAGOS=["","Efectivo","Nequi","Bancolombia","Bold","Ayenda","Daviplata"];
 var CAJAS_LIST=["Efectivo","Nequi","Bancolombia","Bold","Daviplata"];
 var CATS_BASE={SP:"Servicios publicos",MTO:"Mantenimiento",NOM:"Nomina",ASEO:"Productos aseo",OTR:"Otros",BOOK:"Booking",LIQ:"Liquidos y vitrina"};
+// Palabras que delatan a que categoria pertenece un gasto. Nacio porque los
+// mantenimientos se registraban en OTR: tornillos, flete, soldadura. Entre
+// 2013 y 2023 mas de la mitad de los gastos quedaron en OTR por eso, y
+// Mantenimiento aparece con 317 registros en doce anos.
+// El administrador puede ampliar la lista desde la app; lo que agregue se
+// guarda en hotel_palabras_cat y se une a esta.
+var PALABRAS_CAT_BASE={
+  MTO:["tornillo","tornillos","flete","fletes","soldadura","soldador","soldar","pintura","pintar",
+       "cemento","arena","ladrillo","cable","cables","bombillo","bombillos","lampara","enchufe",
+       "toma","breaker","llave","llaves","tubo","tuberia","sifon","grifo","ducha","sanitario",
+       "cerradura","bisagra","candado","silicona","pegante","lija","brocha","rodillo","estuco",
+       "plomeria","plomero","electrico","electricista","albanil","reparacion","arreglo","repuesto",
+       "herramienta","taladro","puntilla","puntillas","varilla","mano de obra","cafe","azucar","vasos"],
+  ASEO:["clorox","jabon","detergente","escoba","trapero","bolsa","bolsas","ambientador","higienico",
+        "desinfectante","limpido","guantes","esponja"],
+  SP:["luz","agua","energia","acueducto","alcantarillado","internet","telefono","gas"]
+};
+var PALABRAS_CAT={};
+function reconstruirPalabras(){
+  PALABRAS_CAT={};
+  Object.keys(PALABRAS_CAT_BASE).forEach(function(c){PALABRAS_CAT[c]=PALABRAS_CAT_BASE[c].slice();});
+  Object.keys(PALABRAS_EXTRA).forEach(function(c){
+    if(!PALABRAS_CAT[c])PALABRAS_CAT[c]=[];
+    PALABRAS_EXTRA[c].forEach(function(p){if(PALABRAS_CAT[c].indexOf(p)<0)PALABRAS_CAT[c].push(p);});
+  });
+}
+var PALABRAS_EXTRA={};
+reconstruirPalabras();   // con las de fabrica, hasta que lleguen las propias
+
+// Devuelve la categoria que sugieren las palabras de un texto, o "" si
+// ninguna la delata. Compara por palabra completa: "llave" no debe saltar
+// dentro de "llaveria" ni "cable" dentro de "cablegrama".
+function sugerirCat(texto){
+  var t=norm(texto||"");
+  if(!t)return "";
+  var mejor="",largo=0;
+  Object.keys(PALABRAS_CAT).forEach(function(cat){
+    PALABRAS_CAT[cat].forEach(function(p){
+      var pn=norm(p);
+      if(!pn||pn.length<3)return;
+      if(new RegExp("(^|[^a-z0-9])"+pn.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"([^a-z0-9]|$)").test(t)){
+        // Gana la palabra mas larga: "mano de obra" sobre "obra".
+        if(pn.length>largo){largo=pn.length;mejor=cat;}
+      }
+    });
+  });
+  return mejor;
+}
+
 var CAT_COLORS_BASE={SP:"#e3f0ff",MTO:"#fff3cd",NOM:"#d4edda",ASEO:"#e8f5e9",OTR:"#f0f0f0",BOOK:"#fce4ec",LIQ:"#e8f5e9"};
 var CAT_TEXT_BASE={SP:"#1a4a80",MTO:"#7a5c00",NOM:"#2d6a3f",ASEO:"#1a5c2a",OTR:"#555",BOOK:"#880e4f",LIQ:"#1b5e20"};
 var CATS_CUSTOM={}; // {codigo: nombre} guardadas en DB
@@ -1084,6 +1134,8 @@ function _aplicarDatos(d){
       if(d.hotel_nom_turnos&&Array.isArray(d.hotel_nom_turnos)){d.hotel_nom_turnos.forEach(function(v){if(v)agregarTurnoOpcion(v);});}
       if(d.hotel_nom_gp&&Array.isArray(d.hotel_nom_gp)){d.hotel_nom_gp.forEach(function(v){if(v)agregarNomGpOpcion(v);});}
       if(d.hotel_cats_custom&&typeof d.hotel_cats_custom==="object"){CATS_CUSTOM=d.hotel_cats_custom;reconstruirCats();}
+      if(d.hotel_palabras_cat&&typeof d.hotel_palabras_cat==="object")PALABRAS_EXTRA=d.hotel_palabras_cat;
+      reconstruirPalabras();
     }catch(e){console.error("Error cargando:",e);}
 }
 
@@ -2806,7 +2858,38 @@ function toggleDescGasto(){
   else if(cat.toUpperCase().startsWith("NOM"))document.getElementById("g-desc-nomgp-wrap").style.display="block";
   else if(cat==="ASEO"){document.getElementById("g-desc-aseo-wrap").style.display="block";limpiarChips();}
   else document.getElementById("g-desc-libre").style.display="block";
+  avisarCatSugerida();
 }
+// Aviso mientras se escribe: si la descripcion delata otra categoria distinta
+// de la elegida, se dice y se ofrece el cambio en un boton. No bloquea: hay
+// casos legitimos —un flete que de verdad no es mantenimiento— y una ventana
+// que estorbe en cada tecla termina ignorandose.
+function avisarCatSugerida(){
+  var av=document.getElementById("g-cat-sugerida");
+  if(!av)return;
+  var cat=(document.getElementById("g-cat")||{}).value||"";
+  var txt=(document.getElementById("g-desc-libre")||{}).value||"";
+  var sug=sugerirCat(txt);
+  if(!sug||sug===cat){av.style.display="none";av.innerHTML="";return;}
+  av.innerHTML="&#128161; Esto parece <b>"+esc(sug)+" &mdash; "+esc(CATS[sug]||sug)+"</b>"
+    +"<button onclick='aplicarCatSugerida(\""+esc(sug)+"\")' style='margin-left:8px;padding:3px 10px;background:#7a5c00;color:#fff;border:none;border-radius:4px;font-size:11px;font-weight:bold;cursor:pointer;'>Cambiar a "+esc(sug)+"</button>";
+  av.style.display="block";
+}
+
+function aplicarCatSugerida(cat){
+  var sel=document.getElementById("g-cat");
+  if(!sel)return;
+  // OTR y MTO comparten el mismo campo de descripcion, asi que el texto ya
+  // escrito no se pierde al cambiar. Si la categoria destino usara otro campo
+  // —NOM, ASEO, SP— el texto se copia al que corresponda.
+  var txt=(document.getElementById("g-desc-libre")||{}).value||"";
+  sel.value=cat;
+  toggleDescGasto();
+  var libre=document.getElementById("g-desc-libre");
+  if(libre&&libre.style.display!=="none")libre.value=txt;
+  avisarCatSugerida();
+}
+
 function limpiarChips(){chipsAseo=[];renderChips();}
 function renderChips(){var cont=document.getElementById("aseo-chips");if(!cont)return;cont.innerHTML=chipsAseo.map(function(c,i){return "<span class='chip'>"+c+"<button onclick='quitarChip("+i+")' style='border:none;background:none;cursor:pointer;color:#c00;font-size:12px;padding:0;'>&#215;</button></span>";}).join("");var fin=document.getElementById("g-desc-aseo-final");if(fin)fin.value=chipsAseo.join(", ");}
 function quitarChip(i){chipsAseo.splice(i,1);renderChips();}
@@ -2897,6 +2980,19 @@ function registrarGasto(){
   var cat=document.getElementById("g-cat").value;var desc=getDesc().trim();var pago=document.getElementById("g-pago").value;
   if(!fecha||!monto||!cat||!desc||!pago){alert("Completa todos los campos incluyendo Forma de pago.");return;}
   if(cat==="NOM"&&!desc.trim().toLowerCase().startsWith("turno")){alert("Para NOM la descripción debe empezar con 'Turno'. Ejemplo: Turno mary, Turno ovidio vacaciones.");return;}
+  // Ultimo filtro antes de guardar. El aviso de arriba se puede pasar por
+  // alto; esto pregunta una vez, y si dice que no, cambia la categoria y
+  // guarda con la correcta en vez de obligar a empezar de nuevo.
+  var _sug=sugerirCat(desc);
+  if(_sug&&_sug!==cat){
+    if(!confirm("Va a guardar este gasto como "+cat+" — "+(CATS[cat]||cat)+".\n\n"
+      +"Por la descripción (\""+desc+"\") parece "+_sug+" — "+(CATS[_sug]||_sug)+".\n\n"
+      +"Aceptar  = guardar como "+cat+" (es correcto)\n"
+      +"Cancelar = guardarlo como "+_sug)){
+      cat=_sug;
+      var _selc=document.getElementById("g-cat");if(_selc)_selc.value=_sug;
+    }
+  }
   var _ahoraG=new Date();var _tsG=_ahoraG.toLocaleDateString('en-CA')+" "+_ahoraG.toTimeString().slice(0,5);
   var _idG=Date.now();
   gastosDetalle.push({id:_idG,fecha:fecha,monto:monto,cat:cat,desc:desc,pago:pago,creadoPor:sesion.nombre||sesion.usuario||"",creadoEn:_tsG});
@@ -3526,6 +3622,11 @@ function vzDetectarCat(txt){
   if(/\b(mantenimiento|reparacion|arreglo|plomeria|electrico|pintura)\b/.test(t))return'MTO';
   if(/\b(booking|comision)\b/.test(t))return'BOOK';
   if(/\b(liquido|liquidos|vitrina)\b/.test(t))return'LIQ';
+  // Antes de rendirse, el mismo diccionario que usa el formulario escrito.
+  // Sin esto "gasto tornillos veinte mil efectivo" terminaba en OTR, que es
+  // justo lo que se quiere evitar.
+  var sug=sugerirCat(txt);
+  if(sug)return sug;
   return'OTR';
 }
 // Quita del texto el comando, la forma de pago y los numeros, para quedarse
@@ -4459,8 +4560,85 @@ function renderAdminCats(){
     });
     html+="</div>";
   }
+  // ── PALABRAS QUE SUGIEREN CATEGORIA ──
+  html+="<div style='margin-top:22px;border-top:2px solid #eee;padding-top:16px;'>";
+  html+="<div style='font-size:14px;font-weight:bold;color:#7a5c00;margin-bottom:6px;'>&#128161; Palabras que sugieren categoría</div>";
+  html+="<div style='background:#fff3cd;border:1px solid #c9a227;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#7a5c00;'>";
+  html+="Cuando alguien escriba una de estas palabras en la descripción, la app le avisa y le ofrece la categoría correcta. Agregue aquí las que vea mal clasificadas.";
+  html+="</div>";
+  html+="<div style='display:flex;gap:8px;align-items:flex-end;margin-bottom:14px;flex-wrap:wrap;'>";
+  html+="<div style='display:flex;flex-direction:column;gap:3px;'><label style='font-size:11px;font-weight:bold;color:#555;'>Palabra</label>";
+  html+="<input type='text' id='pal-texto' placeholder='destornillador' style='padding:8px 10px;border:2px solid #c9a227;border-radius:6px;font-size:14px;width:170px;' onkeydown='if(event.key===\"Enter\")agregarPalabraCat()'/></div>";
+  html+="<div style='display:flex;flex-direction:column;gap:3px;'><label style='font-size:11px;font-weight:bold;color:#555;'>Categoría</label>";
+  html+="<select id='pal-cat' style='padding:8px 10px;border:2px solid #c9a227;border-radius:6px;font-size:14px;'>";
+  Object.keys(CATS).forEach(function(c){if(c!=="OTR")html+="<option value='"+esc(c)+"'>"+esc(c)+" — "+esc(CATS[c])+"</option>";});
+  html+="</select></div>";
+  html+="<button class='tbtn' onclick='agregarPalabraCat()' style='background:#7a5c00;color:#fff;border-color:#7a5c00;font-weight:bold;padding:8px 18px;'>+ Agregar</button>";
+  html+="</div>";
+  Object.keys(PALABRAS_CAT).sort().forEach(function(c){
+    var propias=(PALABRAS_EXTRA[c]||[]);
+    var fijas=(PALABRAS_CAT_BASE[c]||[]);
+    if(!propias.length&&!fijas.length)return;
+    html+="<div style='margin-bottom:10px;'>";
+    html+="<div style='font-size:12px;font-weight:bold;color:#555;margin-bottom:4px;'>"+esc(c)+" &mdash; "+esc(CATS[c]||c)+"</div>";
+    html+="<div style='display:flex;flex-wrap:wrap;gap:5px;'>";
+    fijas.forEach(function(p){
+      html+="<span style='background:#f0f0f0;color:#777;padding:3px 10px;border-radius:12px;font-size:12px;'>"+esc(p)+"</span>";
+    });
+    propias.forEach(function(p){
+      html+="<span style='background:#fff3cd;color:#7a5c00;border:1px solid #c9a227;padding:3px 6px 3px 10px;border-radius:12px;font-size:12px;font-weight:bold;'>"+esc(p)
+        +"<button onclick='quitarPalabraCat("+JSON.stringify(c)+","+JSON.stringify(p)+")' title='Quitar' style='border:none;background:none;color:#c00;cursor:pointer;font-size:12px;padding:0 4px;'>&#10005;</button></span>";
+    });
+    html+="</div></div>";
+  });
+  html+="<div style='font-size:11px;color:#aaa;margin-top:8px;'>Las grises vienen de fábrica y no se pueden quitar. Las amarillas las agregó usted.</div>";
+  html+="</div>";
   showOverlay(html,false);
   setTimeout(function(){var el=document.getElementById("cat-codigo");if(el)el.focus();},80);
+}
+
+function _guardarPalabras(msg){
+  reconstruirPalabras();
+  fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hotel_palabras_cat:PALABRAS_EXTRA})})
+    .then(function(r){
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      renderAdminCats();
+      var m=document.getElementById("saved-msg");
+      if(m){m.textContent=msg;m.style.color="#7a5c00";setTimeout(function(){m.textContent="";},3000);}
+    }).catch(function(e){
+      alert("No se pudo guardar la lista de palabras. Revise la conexión e intente de nuevo.");
+      console.error(e);
+    });
+}
+
+function agregarPalabraCat(){
+  if(sesion.rol!=="admin"){alert("Solo el administrador puede editar esta lista.");return;}
+  var p=norm(((document.getElementById("pal-texto")||{}).value||""));
+  var c=((document.getElementById("pal-cat")||{}).value||"");
+  if(!p||p.length<3){alert("Escriba una palabra de al menos 3 letras.");return;}
+  if(!c){alert("Elija la categoría.");return;}
+  // Una misma palabra en dos categorias daria sugerencias contradictorias.
+  var yaEn="";
+  Object.keys(PALABRAS_CAT).forEach(function(k){if(PALABRAS_CAT[k].indexOf(p)>=0)yaEn=k;});
+  if(yaEn){
+    if(yaEn===c){alert("\""+p+"\" ya está en "+c+".");return;}
+    if(!confirm("\""+p+"\" ya está en "+yaEn+".\n\n¿Pasarla a "+c+"?"))return;
+    if(PALABRAS_EXTRA[yaEn])PALABRAS_EXTRA[yaEn]=PALABRAS_EXTRA[yaEn].filter(function(x){return x!==p;});
+    if((PALABRAS_CAT_BASE[yaEn]||[]).indexOf(p)>=0){
+      alert("\""+p+"\" viene de fábrica en "+yaEn+" y no se puede mover.");return;
+    }
+  }
+  if(!PALABRAS_EXTRA[c])PALABRAS_EXTRA[c]=[];
+  PALABRAS_EXTRA[c].push(p);
+  document.getElementById("pal-texto").value="";
+  _guardarPalabras('"'+p+'" se sugerirá como '+c);
+}
+
+function quitarPalabraCat(c,p){
+  if(sesion.rol!=="admin"){alert("Solo el administrador puede editar esta lista.");return;}
+  if(!PALABRAS_EXTRA[c])return;
+  PALABRAS_EXTRA[c]=PALABRAS_EXTRA[c].filter(function(x){return x!==p;});
+  _guardarPalabras('"'+p+'" quitada de '+c);
 }
 
 function agregarCatCustom(){
