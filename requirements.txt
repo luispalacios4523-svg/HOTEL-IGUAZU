@@ -1,4 +1,8 @@
 flask==3.0.3
 gunicorn==22.0.0
 pg8000==1.31.2
+# pg8000 la necesita para conectarse. Sin este minimo, pip puede instalar una
+# version vieja que no trae make_channel_binding y la aplicacion no arranca:
+# paso el 13/11/2026, cuando Render construyo con Python 3.14 en vez de 3.11.
+scramp>=1.4.5
 requests==2.32.3
