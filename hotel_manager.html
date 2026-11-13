@@ -2731,9 +2731,12 @@ function ejecutarBusquedaGlobal(){
   }
   if(seccion==="todo"||seccion==="gastos"){
     var gR=gastosDetalle.filter(function(g){return [(g.desc||""),(g.cat||""),(g.pago||""),(g.fecha||""),String(g.monto),(CATS[g.cat]||"")].some(function(f){return f.toLowerCase().includes(q);});}).sort(function(a,b){return(b.fecha||"").localeCompare(a.fecha||"");});
-    if(gR.length){var tG=gR.reduce(function(a,g){return a+g.monto;},0);html+="<div style='font-size:12px;font-weight:bold;color:#7a5c00;margin:10px 0 6px;padding:6px 10px;background:#fff8e1;border-radius:4px;'>Gastos ("+gR.length+") &mdash; Total: "+fmt(tG)+"</div><table style='width:100%;border-collapse:collapse;margin-bottom:10px;'><thead><tr style='background:#f0f0f0;'><th style='padding:5px;text-align:left;font-size:11px;'>Fecha</th><th style='padding:5px;text-align:left;font-size:11px;'>Cat</th><th style='padding:5px;text-align:left;font-size:11px;'>Descripcion</th><th style='padding:5px;text-align:right;font-size:11px;'>Monto</th><th style='padding:5px;text-align:left;font-size:11px;'>Pago</th></tr></thead><tbody>";
-    gR.slice(0,50).forEach(function(g){var bg=CAT_COLORS[g.cat]||"#f9f9f9";var tc=CAT_TEXT[g.cat]||"#333";html+="<tr style='border-bottom:1px solid #eee;'><td style='padding:5px;color:#888;'>"+g.fecha+"</td><td style='padding:5px;'><span style='background:"+bg+";color:"+tc+";padding:2px 8px;border-radius:10px;font-size:11px;font-weight:bold;'>"+g.cat+"</span></td><td style='padding:5px;'>"+esc(g.desc)+"</td><td style='padding:5px;text-align:right;font-weight:bold;color:#c00;'>"+fmt(g.monto)+"</td><td style='padding:5px;'>"+esc(g.pago||"")+"</td></tr>";});
-    if(gR.length>50)html+="<tr><td colspan='5' style='padding:6px;color:#888;text-align:center;'>... y "+(gR.length-50)+" mas</td></tr>";
+    if(gR.length){var tG=gR.reduce(function(a,g){return a+g.monto;},0);html+="<div style='font-size:12px;font-weight:bold;color:#7a5c00;margin:10px 0 6px;padding:6px 10px;background:#fff8e1;border-radius:4px;'>Gastos ("+gR.length+") &mdash; Total: "+fmt(tG)+"</div><table style='width:100%;border-collapse:collapse;margin-bottom:10px;'><thead><tr style='background:#f0f0f0;'><th style='padding:5px;text-align:left;font-size:11px;'>Fecha</th><th style='padding:5px;text-align:left;font-size:11px;'>Cat</th><th style='padding:5px;text-align:left;font-size:11px;'>Descripcion</th><th style='padding:5px;text-align:right;font-size:11px;'>Monto</th><th style='padding:5px;text-align:left;font-size:11px;'>Pago</th><th></th></tr></thead><tbody>";
+    // Encontrar el gasto y no poder corregirlo desde aqui obligaba a volver a
+    // buscarlo a mano en la lista de GASTOS. El boton es el mismo de alla y,
+    // como alla, solo lo ve el administrador.
+    gR.slice(0,50).forEach(function(g){var bg=CAT_COLORS[g.cat]||"#f9f9f9";var tc=CAT_TEXT[g.cat]||"#333";html+="<tr style='border-bottom:1px solid #eee;'><td style='padding:5px;color:#888;'>"+g.fecha+"</td><td style='padding:5px;'><span style='background:"+bg+";color:"+tc+";padding:2px 8px;border-radius:10px;font-size:11px;font-weight:bold;'>"+g.cat+"</span></td><td style='padding:5px;'>"+esc(g.desc)+"</td><td style='padding:5px;text-align:right;font-weight:bold;color:#c00;'>"+fmt(g.monto)+"</td><td style='padding:5px;'>"+esc(g.pago||"")+"</td><td style='padding:5px;white-space:nowrap;'>"+(sesion.rol==="admin"?"<button onclick='editarGasto("+JSON.stringify(g.id)+")' title='Editar este gasto' style='padding:3px 8px;background:#e3f0ff;border:1px solid #1a6bb5;border-radius:4px;cursor:pointer;font-size:11px;color:#1a3a6b;'>&#9999;&#65039;</button>":"")+"</td></tr>";});
+    if(gR.length>50)html+="<tr><td colspan='6' style='padding:6px;color:#888;text-align:center;'>... y "+(gR.length-50)+" mas</td></tr>";
     html+="</tbody></table>";}
   }
   if(!html)html="<div style='color:#888;padding:20px;text-align:center;'>Sin resultados para \""+esc(q)+"\"</div>";
@@ -2961,7 +2964,11 @@ function renderGastosTab(){
     return true;
   }).sort(function(a,b){var fd=(b.fecha||"").localeCompare(a.fecha||"");return fd!==0?fd:(b.id||0)-(a.id||0);});
   var tb=document.getElementById("tbody-gastos");
-  tb.innerHTML=lista.length?lista.map(function(g){var bg=CAT_COLORS[g.cat]||"#f9f9f9";var tc=CAT_TEXT[g.cat]||"#333";var audit=g.creadoEn?(g.creadoEn+(g.creadoPor?" · "+g.creadoPor:"")):"";if(g.editadoEn)audit+=(audit?" ":"")+"· editado "+g.editadoEn+(g.editadoPor?" por "+g.editadoPor:"");return "<tr id='gr"+g.id+"' style='border-bottom:1px solid #eee;'><td style='padding:7px 8px;'>"+g.fecha+(audit?"<br><span style='font-size:10px;color:#aaa'>"+esc(audit)+"</span>":"")+"</td><td class='cv' style='padding:7px 8px;text-align:right;font-weight:bold;'>"+fmt(g.monto)+"</td><td style='padding:7px 8px;'><span style='background:"+bg+";color:"+tc+";padding:2px 8px;border-radius:10px;font-size:12px;font-weight:bold;'>"+g.cat+"</span></td><td style='padding:7px 8px;'>"+esc(g.desc)+"</td><td style='padding:7px 8px;'>"+g.pago+"</td><td style='padding:7px 8px;white-space:nowrap;'>"+(sesion.rol==="admin"?"<button onclick='editarGasto("+g.id+")' style='padding:3px 8px;background:#e3f0ff;border:1px solid #1a6bb5;border-radius:4px;cursor:pointer;font-size:11px;color:#1a3a6b;margin-right:4px;'>✏️</button>":"")+"<button onclick='eliminarGasto("+g.id+")' style='border:none;background:none;cursor:pointer;color:#c00;font-size:13px'>&#10005;</button></td></tr>";}).join(""):"<tr><td colspan='6' style='padding:20px;text-align:center;color:#888'>Sin gastos</td></tr>";
+  tb.innerHTML=lista.length?lista.map(function(g){var bg=CAT_COLORS[g.cat]||"#f9f9f9";var tc=CAT_TEXT[g.cat]||"#333";var audit=g.creadoEn?(g.creadoEn+(g.creadoPor?" · "+g.creadoPor:"")):"";if(g.editadoEn)audit+=(audit?" ":"")+"· editado "+g.editadoEn+(g.editadoPor?" por "+g.editadoPor:"");return "<tr id='gr"+g.id+"' style='border-bottom:1px solid #eee;'><td style='padding:7px 8px;'>"+g.fecha+(audit?"<br><span style='font-size:10px;color:#aaa'>"+esc(audit)+"</span>":"")+"</td><td class='cv' style='padding:7px 8px;text-align:right;font-weight:bold;'>"+fmt(g.monto)+"</td><td style='padding:7px 8px;'><span style='background:"+bg+";color:"+tc+";padding:2px 8px;border-radius:10px;font-size:12px;font-weight:bold;'>"+g.cat+"</span></td><td style='padding:7px 8px;'>"+esc(g.desc)+"</td><td style='padding:7px 8px;'>"+g.pago+"</td><td style='padding:7px 8px;white-space:nowrap;'>"+(sesion.rol==="admin"?"<button onclick='editarGasto("+JSON.stringify(g.id)+")' style='padding:3px 8px;background:#e3f0ff;border:1px solid #1a6bb5;border-radius:4px;cursor:pointer;font-size:11px;color:#1a3a6b;margin-right:4px;'>✏️</button>":"")
+      // Borrar quedaba al alcance de cualquiera: una recepcionista podia
+      // eliminar un gasto con solo confirmar. Ahora lleva el mismo candado
+      // que editar, que es lo que se espera de los dos.
+      +(sesion.rol==="admin"?"<button onclick='eliminarGasto("+JSON.stringify(g.id)+")' title='Eliminar este gasto' style='border:none;background:none;cursor:pointer;color:#c00;font-size:13px'>&#10005;</button>":"")+"</td></tr>";}).join(""):"<tr><td colspan='6' style='padding:20px;text-align:center;color:#888'>Sin gastos</td></tr>";
   var totCat={},totPago={},gran=0;
   Object.keys(CATS).forEach(function(c){totCat[c]=0;});PAGOS.slice(1).forEach(function(p){totPago[p]=0;});
   lista.forEach(function(g){gran+=g.monto;if(totCat[g.cat]!==undefined)totCat[g.cat]+=g.monto;if(totPago[g.pago]!==undefined)totPago[g.pago]+=g.monto;});
@@ -2972,7 +2979,20 @@ function renderGastosTab(){
   PAGOS.slice(1).forEach(function(p){if(totPago[p]>0)html+="<div class='fi'><div class='fl'>"+p+"</div><div class='fv'>"+fmt(totPago[p])+"</div></div>";});
   totDiv.innerHTML=html;
 }
-function eliminarGasto(id){if(!confirm("Eliminar?"))return;gastosDetalle=gastosDetalle.filter(function(g){return g.id!==id;});guardar();renderGastosTab();calcTotales();}
+// Esconder el boton no basta: la orden se puede dar igual desde el navegador.
+// La comprobacion va aqui, igual que en editarGasto.
+function eliminarGasto(id){
+  if(sesion.rol!=="admin"){alert("Solo el administrador puede eliminar gastos.");return;}
+  var g=null;
+  for(var i=0;i<gastosDetalle.length;i++){if(gastosDetalle[i].id===id){g=gastosDetalle[i];break;}}
+  if(!g){alert("Gasto no encontrado.");return;}
+  // Antes solo preguntaba "Eliminar?", sin decir cual: era facil borrar el
+  // que no era y no enterarse.
+  if(!confirm("¿Eliminar este gasto?\n\n"+g.fecha+"  —  "+g.cat+"\n"
+    +(g.desc||"(sin descripción)")+"\n"+fmt(g.monto)+"  ("+(g.pago||"-")+")\n\nNo se puede deshacer."))return;
+  gastosDetalle=gastosDetalle.filter(function(x){return x.id!==id;});
+  guardar();renderGastosTab();calcTotales();
+}
 
 // Editar un gasto ya registrado. Solo administrador. Antes solo se podia
 // eliminar, asi que corregir una fecha o un monto obligaba a borrar y
